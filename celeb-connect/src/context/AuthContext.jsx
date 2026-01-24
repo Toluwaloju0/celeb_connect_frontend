@@ -8,8 +8,6 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // On app load, check if we have user data in localStorage
-        // OR optionally hit a '/me' endpoint to validate the cookie
         const storedUser = localStorage.getItem('user');
         if (storedUser) {
             setUser(JSON.parse(storedUser));
@@ -19,31 +17,65 @@ export const AuthProvider = ({ children }) => {
 
     const login = async (email, password) => {
         try {
-            const response = await api.post('/auth/login', { email, password });
-            
+            const response = await api.post('/login', { email, password });
             if (response.data.status === true) {
-                const userData = response.data.data;
+                const userData = { ...response.data.data, role: 'user' };
                 setUser(userData);
-                // We store non-sensitive user info in localStorage for UI persistence
-                // The TOKENS are safely in HttpOnly cookies handled by the browser
                 localStorage.setItem('user', JSON.stringify(userData));
                 return { success: true };
             } else {
                 return { success: false, message: response.data.message };
             }
         } catch (error) {
+            return { success: false, message: error.response?.data?.message || "Login failed" };
+        }
+    };
+
+    const adminLogin = async (email, password) => {
+        try {
+            const response = await api.post('/auth/admin/login', { email, password });
+            if (response.data.status === true) {
+                const adminData = { ...response.data.data, role: 'admin' };
+                setUser(adminData);
+                localStorage.setItem('user', JSON.stringify(adminData));
+                return { success: true };
+            } else {
+                return { success: false, message: response.data.message };
+            }
+        } catch (error) {
+            return { success: false, message: error.response?.data?.message || "Admin access denied" };
+        }
+    };
+
+    // --- NEW: Agent Login ---
+    const agentLogin = async (email, password) => {
+        try {
+            const response = await api.post('/auth/agent/login', { email, password });
+            
+            if (response.data.status === true) {
+                // Save with 'agent' role
+                const agentData = { ...response.data.data, role: 'agent' };
+                setUser(agentData);
+                localStorage.setItem('user', JSON.stringify(agentData));
+                
+                // Return the data so the UI can decide on the redirect
+                return { success: true, data: agentData };
+            } else {
+                return { success: false, message: response.data.message };
+            }
+        } catch (error) {
             return { 
                 success: false, 
-                message: error.response?.data?.message || "Login failed" 
+                message: error.response?.data?.message || "Agent access denied" 
             };
         }
     };
 
     const signup = async (payload) => {
         try {
-            const response = await api.post('/auth/signup', payload);
+            const response = await api.post('/signup', payload);
             if (response.data.status === true) {
-                const userData = response.data.data;
+                const userData = { ...response.data.data, role: 'user' };
                 setUser(userData);
                 localStorage.setItem('user', JSON.stringify(userData));
                 return { success: true };
@@ -51,16 +83,13 @@ export const AuthProvider = ({ children }) => {
                 return { success: false, message: response.data.message };
             }
         } catch (error) {
-            return { 
-                success: false, 
-                message: error.response?.data?.message || "Signup failed" 
-            };
+            return { success: false, message: error.response?.data?.message || "Signup failed" };
         }
     };
 
     const logout = async () => {
         try {
-            await api.post('/auth/logout'); // Inform backend to clear cookies
+            await api.post('/logout'); 
         } catch (err) {
             console.error("Logout error", err);
         } finally {
@@ -71,7 +100,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, signup, logout, loading }}>
+        <AuthContext.Provider value={{ user, login, adminLogin, agentLogin, signup, logout, loading }}>
             {children}
         </AuthContext.Provider>
     );
