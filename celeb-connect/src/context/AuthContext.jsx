@@ -15,6 +15,7 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
     }, []);
 
+    // --- LOGINS ---
     const login = async (email, password) => {
         try {
             const response = await api.post('/login', { email, password });
@@ -47,27 +48,19 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    // --- NEW: Agent Login ---
     const agentLogin = async (email, password) => {
         try {
             const response = await api.post('/auth/agent/login', { email, password });
-            
             if (response.data.status === true) {
-                // Save with 'agent' role
                 const agentData = { ...response.data.data, role: 'agent' };
                 setUser(agentData);
                 localStorage.setItem('user', JSON.stringify(agentData));
-                
-                // Return the data so the UI can decide on the redirect
                 return { success: true, data: agentData };
             } else {
                 return { success: false, message: response.data.message };
             }
         } catch (error) {
-            return { 
-                success: false, 
-                message: error.response?.data?.message || "Agent access denied" 
-            };
+            return { success: false, message: error.response?.data?.message || "Agent access denied" };
         }
     };
 
@@ -87,6 +80,9 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    // --- LOGOUTS ---
+    
+    // 1. User Logout
     const logout = async () => {
         try {
             await api.post('/logout'); 
@@ -99,8 +95,48 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    // 2. Admin Logout
+    const adminLogout = async () => {
+        try {
+            await api.post('/auth/admin/logout');
+        } catch (err) {
+            console.error("Admin logout error", err);
+        } finally {
+            setUser(null);
+            localStorage.removeItem('user');
+            window.location.href = '/admin/login';
+        }
+    };
+
+    // 3. Agent Logout
+    const agentLogout = async () => {
+        console.log("Agent Logout Triggered"); // Debug log
+        try {
+            await api.post('/auth/agent/logout');
+        } catch (err) {
+            console.error("Agent logout error", err);
+        } finally {
+            setUser(null);
+            localStorage.removeItem('user');
+            window.location.href = '/agent/login';
+        }
+    };
+
     return (
-        <AuthContext.Provider value={{ user, login, adminLogin, agentLogin, signup, logout, loading }}>
+        <AuthContext.Provider value={{ 
+            user, 
+            loading,
+            // Actions
+            login, 
+            signup, 
+            logout,
+            // Admin
+            adminLogin, 
+            adminLogout,
+            // Agent
+            agentLogin, 
+            agentLogout // <--- CRITICAL: Ensure this is here
+        }}>
             {children}
         </AuthContext.Provider>
     );

@@ -42,8 +42,8 @@ const AgentUpdatePasswordPage = () => {
     setLoading(true);
 
     try {
-      // 2. API Call (PATCH request as requested)
-      const response = await api.patch('/agent/password', {
+      // 2. API Call (UPDATED ENDPOINT)
+      const response = await api.patch('/agent/profile/password', {
         old_password: formData.oldPassword,
         new_password: formData.newPassword
       });

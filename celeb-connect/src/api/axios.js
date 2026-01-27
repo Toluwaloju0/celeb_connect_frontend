@@ -2,64 +2,73 @@ import axios from 'axios';
 
 const BASE_URL = import.meta.env.VITE_API_URL;
 
-// Create the axios instance
 export const api = axios.create({
     baseURL: BASE_URL,
     headers: { 'Content-Type': 'application/json' },
     withCredentials: true 
 });
 
-// Response Interceptor
+// Helper to get refresh route based on role
+const getRefreshEndpoint = () => {
+    const userStr = localStorage.getItem('user');
+    const user = userStr ? JSON.parse(userStr) : null;
+
+    if (user?.role === 'admin') return '/auth/admin/refresh';
+    if (user?.role === 'agent') return '/auth/agent/refresh';
+    
+    // Default User route updated
+    return '/auth/token/refresh';
+};
+
+// --- RESPONSE INTERCEPTOR ---
 api.interceptors.response.use(
-    (response) => {
-        return response;
-    },
-    async (error) => {
-        const originalRequest = error.config;
+    async (response) => {
+        // CASE: 205 RESET CONTENT (Used as signal to Refresh Token)
+        if (response.status === 205) {
+            const originalRequest = response.config;
 
-        if (error.response?.status === 401 && !originalRequest._retry) {
-            originalRequest._retry = true;
-
-            try {
-                // 1. Determine User Role
-                const userStr = localStorage.getItem('user');
-                const user = userStr ? JSON.parse(userStr) : null;
-                
-                // 2. Select Refresh Endpoint based on Role
-                let refreshEndpoint = '/refresh'; // Default User
-                
-                if (user?.role === 'admin') {
-                    refreshEndpoint = '/auth/admin/refresh';
-                } else if (user?.role === 'agent') {
-                    // Assuming Agent follows the same pattern
-                    refreshEndpoint = '/auth/agent/refresh';
+            if (!originalRequest._retry) {
+                originalRequest._retry = true;
+                try {
+                    const refreshEndpoint = getRefreshEndpoint();
+                    
+                    // Call Refresh
+                    await api.post(refreshEndpoint);
+                    
+                    // Retry Original Request
+                    return api(originalRequest);
+                } catch (refreshError) {
+                    console.error("Refresh failed", refreshError);
+                    // Fallthrough to logout logic below
+                    handleLogout();
+                    return Promise.reject(refreshError);
                 }
-
-                // 3. Call Refresh
-                await api.post(refreshEndpoint);
-
-                // 4. Retry
-                return api(originalRequest);
-                
-            } catch (refreshError) {
-                console.error("Session expired", refreshError);
-                localStorage.removeItem('user'); 
-                
-                // Dynamic Redirect based on where they were
-                const path = window.location.pathname;
-                if (path.startsWith('/admin')) {
-                    window.location.href = '/admin/login';
-                } else if (path.startsWith('/agent')) {
-                    window.location.href = '/agent/login';
-                } else {
-                    window.location.href = '/login';
-                }
-                
-                return Promise.reject(refreshError);
             }
         }
+        return response;
+    },
+    (error) => {
+        // CASE: 500 INTERNAL SERVER ERROR
+        if (error.response?.status === 500) {
+            alert(error.response.data?.message || "Internal Server Error occurred.");
+            return Promise.reject(error);
+        }
+
+        // CASE: 401 UNAUTHORIZED
+        if (error.response?.status === 401) {
+            handleLogout();
+            return Promise.reject(error);
+        }
+
         return Promise.reject(error);
     }
 );
+
+// Helper function to clear state and redirect
+const handleLogout = () => {
+    localStorage.removeItem('user');
+    // Always redirect to the main User Login page as requested
+    window.location.href = '/login';
+};
 
 export default api;

@@ -13,10 +13,11 @@ import ValidateOtpPage from './pages/ValidateOtpPage';
 import AdminLoginPage from './pages/AdminLoginPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 
-// New Agent Pages
+// Agent Pages
 import AgentLoginPage from './pages/AgentLoginPage';
 import AgentDashboardPage from './pages/AgentDashboardPage';
 import AgentUpdatePasswordPage from './pages/AgentUpdatePasswordPage';
+import AgentEditCelebrityPage from './pages/AgentEditCelebrityPage'; // NEW
 
 function App() {
   return (
@@ -40,6 +41,8 @@ function App() {
           <Route path="/agent/login" element={<AgentLoginPage />} />
           <Route path="/agent/dashboard" element={<AgentDashboardPage />} />
           <Route path="/agent/update-password" element={<AgentUpdatePasswordPage />} />
+          {/* New Edit Route */}
+          <Route path="/agent/celeb/edit/:id" element={<AgentEditCelebrityPage />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>
