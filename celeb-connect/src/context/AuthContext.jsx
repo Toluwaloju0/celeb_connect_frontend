@@ -15,10 +15,12 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
     }, []);
 
-    // --- LOGINS ---
+    // --- USER ACTIONS ---
+
     const login = async (email, password) => {
         try {
-            const response = await api.post('/login', { email, password });
+            const response = await api.post('/auth/login', { email, password });
+            
             if (response.data.status === true) {
                 const userData = { ...response.data.data, role: 'user' };
                 setUser(userData);
@@ -31,6 +33,38 @@ export const AuthProvider = ({ children }) => {
             return { success: false, message: error.response?.data?.message || "Login failed" };
         }
     };
+
+    const signup = async (payload) => {
+        try {
+            const response = await api.post('/auth/signup', payload);
+            
+            if (response.data.status === true) {
+                const userData = { ...response.data.data, role: 'user' };
+                setUser(userData);
+                localStorage.setItem('user', JSON.stringify(userData));
+                return { success: true };
+            } else {
+                return { success: false, message: response.data.message };
+            }
+        } catch (error) {
+            return { success: false, message: error.response?.data?.message || "Signup failed" };
+        }
+    };
+
+    const logout = async () => {
+        try {
+            // UPDATED: /auth/logout
+            await api.post('/auth/logout'); 
+        } catch (err) {
+            console.error("Logout error", err);
+        } finally {
+            setUser(null);
+            localStorage.removeItem('user');
+            window.location.href = '/login';
+        }
+    };
+
+    // --- ADMIN ACTIONS ---
 
     const adminLogin = async (email, password) => {
         try {
@@ -48,6 +82,20 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    const adminLogout = async () => {
+        try {
+            await api.post('/auth/admin/logout');
+        } catch (err) {
+            console.error("Admin logout error", err);
+        } finally {
+            setUser(null);
+            localStorage.removeItem('user');
+            window.location.href = '/admin/login';
+        }
+    };
+
+    // --- AGENT ACTIONS ---
+
     const agentLogin = async (email, password) => {
         try {
             const response = await api.post('/auth/agent/login', { email, password });
@@ -64,53 +112,7 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    const signup = async (payload) => {
-        try {
-            const response = await api.post('/signup', payload);
-            if (response.data.status === true) {
-                const userData = { ...response.data.data, role: 'user' };
-                setUser(userData);
-                localStorage.setItem('user', JSON.stringify(userData));
-                return { success: true };
-            } else {
-                return { success: false, message: response.data.message };
-            }
-        } catch (error) {
-            return { success: false, message: error.response?.data?.message || "Signup failed" };
-        }
-    };
-
-    // --- LOGOUTS ---
-    
-    // 1. User Logout
-    const logout = async () => {
-        try {
-            await api.post('/logout'); 
-        } catch (err) {
-            console.error("Logout error", err);
-        } finally {
-            setUser(null);
-            localStorage.removeItem('user');
-            window.location.href = '/login';
-        }
-    };
-
-    // 2. Admin Logout
-    const adminLogout = async () => {
-        try {
-            await api.post('/auth/admin/logout');
-        } catch (err) {
-            console.error("Admin logout error", err);
-        } finally {
-            setUser(null);
-            localStorage.removeItem('user');
-            window.location.href = '/admin/login';
-        }
-    };
-
-    // 3. Agent Logout
     const agentLogout = async () => {
-        console.log("Agent Logout Triggered"); // Debug log
         try {
             await api.post('/auth/agent/logout');
         } catch (err) {
@@ -126,7 +128,7 @@ export const AuthProvider = ({ children }) => {
         <AuthContext.Provider value={{ 
             user, 
             loading,
-            // Actions
+            // User
             login, 
             signup, 
             logout,
@@ -135,7 +137,7 @@ export const AuthProvider = ({ children }) => {
             adminLogout,
             // Agent
             agentLogin, 
-            agentLogout // <--- CRITICAL: Ensure this is here
+            agentLogout 
         }}>
             {children}
         </AuthContext.Provider>

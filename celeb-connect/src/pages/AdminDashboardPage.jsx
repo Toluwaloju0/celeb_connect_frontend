@@ -3,7 +3,7 @@ import {
   Search, Users, Star, UserCheck, Loader2, 
   Briefcase, Mail, Phone, Calendar, ShieldCheck, ChevronRight,
   Plus, X, Edit3, Trash2, Camera, LogOut, Upload, Image as ImageIcon,
-  Award, MapPin, ChevronLeft
+  Award, MapPin, ChevronLeft, User, Crown, AlertTriangle, CheckCircle2, XCircle
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
@@ -21,14 +21,25 @@ const AdminDashboardPage = () => {
   const [loadingList, setLoadingList] = useState(false);
   const [loadingDetails, setLoadingDetails] = useState(false);
 
-  // --- CELEBRITY STATE (NEW) ---
+  // --- CELEBRITY STATE ---
   const [celebrities, setCelebrities] = useState([]);
   const [celebPage, setCelebPage] = useState(1);
-  const [celebLimit] = useState(9); // 3x3 Grid
+  const [celebLimit] = useState(9); 
   const [loadingCelebs, setLoadingCelebs] = useState(false);
-  const [hasMoreCelebs, setHasMoreCelebs] = useState(true); // Simple check for pagination
+  const [hasMoreCelebs, setHasMoreCelebs] = useState(true); 
 
-  // --- ACTIONS STATE (Agents Only) ---
+  // --- USER STATE ---
+  const [users, setUsers] = useState([]);
+  const [selectedUserId, setSelectedUserId] = useState(null);
+  const [activeUserDetails, setActiveUserDetails] = useState(null);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [loadingUserDetails, setLoadingUserDetails] = useState(false);
+  
+  const [userPage, setUserPage] = useState(1);
+  const [userLimit] = useState(10); 
+  const [hasMoreUsers, setHasMoreUsers] = useState(true);
+
+  // --- ACTIONS STATE ---
   const [showAddModal, setShowAddModal] = useState(false);
   const [addingAgent, setAddingAgent] = useState(false);
   const [newAgentData, setNewAgentData] = useState({ name: '', email: '', phone_number: '', tier: 1 });
@@ -46,6 +57,10 @@ const AdminDashboardPage = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
 
+  const [showUserLevelModal, setShowUserLevelModal] = useState(false);
+  const [updatingUserLevel, setUpdatingUserLevel] = useState(false);
+  const [selectedUserLevel, setSelectedUserLevel] = useState('Unverified');
+
   const [deleting, setDeleting] = useState(false);
 
   // Environment
@@ -59,17 +74,25 @@ const AdminDashboardPage = () => {
     { value: 5, label: 'Owner' },
   ];
 
-  // --- EFFECT: ROUTER FOR DATA FETCHING ---
+  const USER_LEVELS = [
+    { value: 'Unverified', label: 'Unverified', icon: AlertTriangle, color: 'text-yellow-500', bg: 'bg-yellow-500/10 border-yellow-500/20' },
+    { value: 'Verified', label: 'Verified', icon: UserCheck, color: 'text-green-500', bg: 'bg-green-500/10 border-green-500/20' },
+    { value: 'Basic', label: 'Basic', icon: Star, color: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-500/20' },
+    { value: 'Premium', label: 'Premium', icon: Crown, color: 'text-purple-400', bg: 'bg-purple-500/10 border-purple-500/20' },
+  ];
+
+  // --- EFFECTS ---
   useEffect(() => {
     if (activeSection === 'agents') {
       fetchAgents();
     } else if (activeSection === 'celebrities') {
       fetchCelebrities();
+    } else if (activeSection === 'users') {
+      fetchUsers();
     }
-  }, [activeSection, celebPage]); // Refetch celebs when page changes
+  }, [activeSection, celebPage, userPage]); 
 
   // --- FETCH FUNCTIONS ---
-
   const fetchAgents = async () => {
     setLoadingList(true);
     try {
@@ -92,14 +115,9 @@ const AdminDashboardPage = () => {
   const fetchCelebrities = async () => {
     setLoadingCelebs(true);
     try {
-      // GET /admin/celebs?page=X&limit=Y
-      const response = await api.get('/admin/celebs', {
-        params: { page: celebPage, limit: celebLimit }
-      });
-
+      const response = await api.get('/admin/celebs', { params: { page: celebPage, limit: celebLimit } });
       if (response.data.status === true && Array.isArray(response.data.data)) {
         setCelebrities(response.data.data);
-        // Simple logic: if we get fewer items than limit, we reached the end
         setHasMoreCelebs(response.data.data.length === celebLimit);
       } else {
         setCelebrities([]);
@@ -112,10 +130,30 @@ const AdminDashboardPage = () => {
     }
   };
 
-  // --- AGENT DETAILS FETCH ---
+  const fetchUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      const response = await api.get('/admin/users', { params: { page: userPage, limit: userLimit } });
+      if (response.data.status === true && Array.isArray(response.data.data)) {
+        setUsers(response.data.data);
+        setHasMoreUsers(response.data.data.length === userLimit);
+        if (response.data.data.length > 0 && !selectedUserId) {
+          setSelectedUserId(response.data.data[0].id);
+        }
+      } else {
+        setUsers([]);
+        setHasMoreUsers(false);
+      }
+    } catch (error) {
+      console.error("Failed to fetch users", error);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  // --- DETAILS FETCHERS ---
   useEffect(() => {
     if (!selectedAgentId || activeSection !== 'agents') return;
-
     const fetchAgentDetails = async () => {
       setLoadingDetails(true);
       try {
@@ -131,11 +169,29 @@ const AdminDashboardPage = () => {
         setLoadingDetails(false);
       }
     };
-
     fetchAgentDetails();
   }, [selectedAgentId, activeSection]);
 
-  // --- HANDLERS (Agent Actions - Same as before) ---
+  useEffect(() => {
+    if (!selectedUserId || activeSection !== 'users') return;
+    const fetchUserDetails = async () => {
+        setLoadingUserDetails(true);
+        try {
+            const response = await api.get(`/admin/users/${selectedUserId}`);
+            if (response.data.status === true) {
+                setActiveUserDetails(response.data.data);
+                setSelectedUserLevel(response.data.data.level || 'Unverified');
+            }
+        } catch (error) {
+            console.error("Failed to fetch user details", error);
+        } finally {
+            setLoadingUserDetails(false);
+        }
+    };
+    fetchUserDetails();
+  }, [selectedUserId, activeSection]);
+
+  // --- HANDLERS (Same as before) ---
   const handleAddAgent = async (e) => {
     e.preventDefault();
     setAddingAgent(true);
@@ -232,7 +288,7 @@ const AdminDashboardPage = () => {
 
   const handleDeleteAgent = async () => {
     if (!selectedAgentId) return;
-    if (!window.confirm("Are you sure you want to delete this agent? This action cannot be undone.")) return;
+    if (!window.confirm("Are you sure you want to delete this agent?")) return;
     setDeleting(true);
     try {
       const response = await api.delete(`/admin/agent/${selectedAgentId}`);
@@ -241,7 +297,7 @@ const AdminDashboardPage = () => {
         setAgents(updatedList);
         setSelectedAgentId(updatedList.length > 0 ? updatedList[0].id : null);
         setActiveAgentDetails(null);
-        alert("Agent deleted successfully.");
+        alert("Agent deleted.");
       } else {
         alert(response.data.message || "Delete failed");
       }
@@ -249,6 +305,49 @@ const AdminDashboardPage = () => {
       alert(error.response?.data?.message || "Error deleting agent");
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleUpdateUserLevel = async (e) => {
+    e.preventDefault();
+    if (!selectedUserId) return;
+    setUpdatingUserLevel(true);
+    try {
+      const response = await api.patch(`/admin/user/${selectedUserId}/profile/level`, { new_level: selectedUserLevel });
+      if (response.data.status === true) {
+        setActiveUserDetails(prev => ({ ...prev, level: selectedUserLevel }));
+        setUsers(prev => prev.map(u => u.id === selectedUserId ? { ...u, level: selectedUserLevel } : u));
+        setShowUserLevelModal(false);
+        alert("User level updated.");
+      } else {
+        alert(response.data.message || "Update failed");
+      }
+    } catch (error) {
+      alert(error.response?.data?.message || "Error updating user level");
+    } finally {
+      setUpdatingUserLevel(false);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!selectedUserId) return;
+    if (!window.confirm("Are you sure?")) return;
+    setDeleting(true);
+    try {
+        const response = await api.delete(`/admin/user/${selectedUserId}`);
+        if (response.data.status === true) {
+            const updatedList = users.filter(u => u.id !== selectedUserId);
+            setUsers(updatedList);
+            setSelectedUserId(updatedList.length > 0 ? updatedList[0].id : null);
+            setActiveUserDetails(null);
+            alert("User deleted.");
+        } else {
+            alert(response.data.message || "Delete failed");
+        }
+    } catch (error) {
+        alert(error.response?.data?.message || "Error deleting user");
+    } finally {
+        setDeleting(false);
     }
   };
 
@@ -264,12 +363,18 @@ const AdminDashboardPage = () => {
     if (!filename) return "https://images.unsplash.com/photo-1511367461989-f85a21fda167?q=80&w=1000&auto=format&fit=crop";
     if (filename.startsWith('http')) return filename;
     const cleanDir = PICTURE_BASE.replace(/^\/+|\/+$/g, '');
-    // Assuming backend saves celebs in /agent/ dir (per previous instructions) 
-    // If backend saves in /celebs/, adjust here. Based on context, images are in /agent/
     return `/${cleanDir}/agent/${filename}`; 
   };
 
+  const getUserImageUrl = (filename) => {
+    if (!filename) return "https://images.unsplash.com/photo-1633332755192-727a05c4013d?q=80&w=1000&auto=format&fit=crop";
+    if (filename.startsWith('http')) return filename;
+    const cleanDir = PICTURE_BASE.replace(/^\/+|\/+$/g, '');
+    return `/${cleanDir}/user/${filename}`;
+  };
+
   const getTierLabel = (val) => AGENT_TIERS.find(t => t.value === val)?.label || 'Unknown';
+  const getUserLevelInfo = (levelStr) => USER_LEVELS.find(l => l.value === levelStr) || USER_LEVELS[0];
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-gray-200 font-sans">
@@ -307,13 +412,13 @@ const AdminDashboardPage = () => {
         <div className="grid grid-cols-3 gap-4 mb-8">
            <NavCard title="Agents" icon={<Briefcase />} active={activeSection === 'agents'} onClick={() => setActiveSection('agents')} count={agents.length > 0 ? agents.length : '--'} />
            <NavCard title="Celebrities" icon={<Star />} active={activeSection === 'celebrities'} onClick={() => setActiveSection('celebrities')} count={celebrities.length > 0 ? celebrities.length : '--'} />
-           <NavCard title="Users" icon={<Users />} active={activeSection === 'users'} onClick={() => setActiveSection('users')} count="--" />
+           <NavCard title="Users" icon={<Users />} active={activeSection === 'users'} onClick={() => setActiveSection('users')} count={users.length > 0 ? users.length : '--'} />
         </div>
 
         {/* --- SECTION: AGENTS --- */}
         {activeSection === 'agents' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-             {/* Agents List & Details (Keeping existing logic) */}
+             {/* ... (Agents List & Details code remains identical to previous versions) ... */}
              <div className="lg:col-span-4 space-y-4">
                 <div className="relative">
                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
@@ -374,56 +479,29 @@ const AdminDashboardPage = () => {
           </div>
         )}
 
-        {/* --- SECTION: CELEBRITIES (NEW) --- */}
+        {/* --- SECTION: CELEBRITIES --- */}
         {activeSection === 'celebrities' && (
           <div className="space-y-6">
-             
-             {/* Celeb Grid */}
              <div className="min-h-[400px]">
                 {loadingCelebs ? (
-                   <div className="flex flex-col items-center justify-center h-64 text-red-500">
-                      <Loader2 className="animate-spin mb-2" size={32} />
-                      <p className="text-brand-muted text-sm">Loading Roster...</p>
-                   </div>
+                   <div className="flex flex-col items-center justify-center h-64 text-red-500"><Loader2 className="animate-spin mb-2" size={32} /><p className="text-brand-muted text-sm">Loading Roster...</p></div>
                 ) : celebrities.length === 0 ? (
-                   <div className="text-center py-20 bg-[#1a1a1a] border border-white/5 rounded-3xl">
-                      <Star size={48} className="mx-auto text-brand-muted mb-4 opacity-20" />
-                      <p className="text-brand-muted">No celebrities found in the directory.</p>
-                   </div>
+                   <div className="text-center py-20 bg-[#1a1a1a] border border-white/5 rounded-3xl"><Star size={48} className="mx-auto text-brand-muted mb-4 opacity-20" /><p className="text-brand-muted">No celebrities found.</p></div>
                 ) : (
                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {celebrities.map((celeb) => (
                          <div key={celeb.id} className="bg-[#1a1a1a] border border-white/10 rounded-2xl overflow-hidden hover:border-red-500/30 transition-all group">
-                            {/* Header / Banner */}
                             <div className="h-24 bg-gradient-to-r from-red-900/20 to-black relative">
-                               <div className="absolute top-4 right-4">
-                                  <span className="px-2 py-1 rounded bg-black/50 border border-white/10 text-brand-muted text-[10px] backdrop-blur-md">
-                                     Ref: {celeb.id.substring(0,6)}
-                                  </span>
-                               </div>
+                               <div className="absolute top-4 right-4"><span className="px-2 py-1 rounded bg-black/50 border border-white/10 text-brand-muted text-[10px] backdrop-blur-md">Ref: {celeb.id.substring(0,6)}</span></div>
                             </div>
-                            
-                            {/* Profile Info */}
                             <div className="px-6 pb-6 -mt-12 relative">
-                               <div className="w-24 h-24 rounded-full border-4 border-[#1a1a1a] overflow-hidden bg-gray-800 shadow-lg">
-                                  <img src={getCelebImageUrl(celeb.profile_url)} alt={celeb.name} className="w-full h-full object-cover" />
-                               </div>
-                               
+                               <div className="w-24 h-24 rounded-full border-4 border-[#1a1a1a] overflow-hidden bg-gray-800 shadow-lg"><img src={getCelebImageUrl(celeb.profile_url)} alt={celeb.name} className="w-full h-full object-cover" /></div>
                                <div className="mt-4">
                                   <h3 className="text-xl font-serif text-white font-bold">{celeb.name}</h3>
-                                  <p className="text-red-400 text-sm font-medium flex items-center gap-1 mb-3">
-                                     <Briefcase size={12} /> {celeb.profession || 'Unknown'}
-                                  </p>
-                                  
+                                  <p className="text-red-400 text-sm font-medium flex items-center gap-1 mb-3"><Briefcase size={12} /> {celeb.profession || 'Unknown'}</p>
                                   <div className="space-y-2 text-xs text-brand-muted bg-black/20 p-3 rounded-lg border border-white/5">
-                                     <div className="flex items-center justify-between">
-                                        <span className="flex items-center gap-1"><MapPin size={10} /> Location</span>
-                                        <span className="text-gray-300">{celeb.location || 'N/A'}</span>
-                                     </div>
-                                     <div className="flex items-center justify-between">
-                                        <span className="flex items-center gap-1"><UserCheck size={10} /> Agent ID</span>
-                                        <span className="text-gray-300 font-mono">{celeb.agent_id ? celeb.agent_id.substring(0,8) : 'Unassigned'}</span>
-                                     </div>
+                                     <div className="flex items-center justify-between"><span className="flex items-center gap-1"><MapPin size={10} /> Location</span><span className="text-gray-300">{celeb.location || 'N/A'}</span></div>
+                                     <div className="flex items-center justify-between"><span className="flex items-center gap-1"><UserCheck size={10} /> Agent ID</span><span className="text-gray-300 font-mono">{celeb.agent_id ? celeb.agent_id.substring(0,8) : 'Unassigned'}</span></div>
                                   </div>
                                </div>
                             </div>
@@ -432,41 +510,141 @@ const AdminDashboardPage = () => {
                    </div>
                 )}
              </div>
-
-             {/* Pagination Controls */}
              <div className="flex justify-between items-center pt-4 border-t border-white/10">
-                <button 
-                  onClick={() => setCelebPage(prev => Math.max(prev - 1, 1))}
-                  disabled={celebPage === 1}
-                  className="flex items-center gap-2 px-4 py-2 border border-white/10 rounded-lg text-sm text-white hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                   <ChevronLeft size={16} /> Previous
-                </button>
+                <button onClick={() => setCelebPage(prev => Math.max(prev - 1, 1))} disabled={celebPage === 1} className="flex items-center gap-2 px-4 py-2 border border-white/10 rounded-lg text-sm text-white hover:bg-white/5 disabled:opacity-50"><ChevronLeft size={16} /> Previous</button>
                 <span className="text-sm text-brand-muted">Page {celebPage}</span>
-                <button 
-                  onClick={() => setCelebPage(prev => prev + 1)}
-                  disabled={!hasMoreCelebs}
-                  className="flex items-center gap-2 px-4 py-2 border border-white/10 rounded-lg text-sm text-white hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                   Next <ChevronRight size={16} />
-                </button>
+                <button onClick={() => setCelebPage(prev => prev + 1)} disabled={!hasMoreCelebs} className="flex items-center gap-2 px-4 py-2 border border-white/10 rounded-lg text-sm text-white hover:bg-white/5 disabled:opacity-50">Next <ChevronRight size={16} /></button>
              </div>
           </div>
         )}
 
-        {/* --- SECTION: USERS (Placeholder) --- */}
+        {/* --- SECTION: USERS (UPDATED WITH BADGES) --- */}
         {activeSection === 'users' && (
-           <div className="flex flex-col items-center justify-center h-64 border border-dashed border-white/10 rounded-3xl bg-[#1a1a1a]/50">
-              <Loader2 className="animate-spin mb-4 text-red-500" />
-              <p className="text-white font-serif text-xl">User Module Coming Soon</p>
+           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+              
+              {/* LEFT: USERS LIST */}
+              <div className="lg:col-span-4 space-y-4">
+                 <div className="relative">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
+                    <input type="text" placeholder="Search users..." className="w-full bg-[#1a1a1a] border border-white/10 rounded-xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:border-red-500/50 transition-colors" />
+                 </div>
+                 
+                 <div className="space-y-3 mt-4 overflow-y-auto max-h-[600px] pr-2 custom-scrollbar">
+                    {loadingUsers ? (
+                       <div className="flex justify-center py-8"><Loader2 className="animate-spin text-red-500" /></div>
+                    ) : users.length === 0 ? (
+                       <div className="text-center py-8 text-brand-muted text-sm">No users found.</div>
+                    ) : (
+                       users.map((userItem) => (
+                         <div key={userItem.id} onClick={() => setSelectedUserId(userItem.id)} className={`p-4 rounded-xl border cursor-pointer transition-all flex items-center gap-3 ${selectedUserId === userItem.id ? 'bg-[#1a1a1a] border-red-500/30 shadow-lg shadow-black/20' : 'bg-[#1a1a1a]/50 border-white/5 hover:border-white/10'}`}>
+                            <div className="w-10 h-10 rounded-full overflow-hidden border border-white/10 shrink-0 bg-gray-800"><img src={getUserImageUrl(userItem.profile_url)} alt={userItem.name} className="w-full h-full object-cover" /></div>
+                            <div className="flex-1 min-w-0">
+                               <h4 className={`font-medium text-sm truncate ${selectedUserId === userItem.id ? 'text-red-500' : 'text-white'}`}>{userItem.name || 'User'}</h4>
+                               <p className="text-xs text-brand-muted truncate">{userItem.email}</p>
+                            </div>
+                            <ChevronRight size={16} className={`text-gray-600 ${selectedUserId === userItem.id ? 'text-red-500' : ''}`} />
+                         </div>
+                       ))
+                    )}
+                 </div>
+
+                 {/* Users Pagination */}
+                 <div className="flex justify-between items-center pt-2 border-t border-white/10">
+                    <button onClick={() => setUserPage(prev => Math.max(prev - 1, 1))} disabled={userPage === 1} className="flex items-center gap-1 px-3 py-1.5 border border-white/10 rounded-lg text-xs text-white hover:bg-white/5 disabled:opacity-50"><ChevronLeft size={12} /> Prev</button>
+                    <span className="text-xs text-brand-muted">Page {userPage}</span>
+                    <button onClick={() => setUserPage(prev => prev + 1)} disabled={!hasMoreUsers} className="flex items-center gap-1 px-3 py-1.5 border border-white/10 rounded-lg text-xs text-white hover:bg-white/5 disabled:opacity-50">Next <ChevronRight size={12} /></button>
+                 </div>
+              </div>
+
+              {/* RIGHT: USER DETAILS */}
+              <div className="lg:col-span-8">
+                 <div className="bg-[#1a1a1a] border border-white/10 rounded-3xl p-8 h-full min-h-[500px] relative">
+                    {loadingUserDetails ? (
+                       <div className="h-full flex flex-col items-center justify-center text-brand-muted"><Loader2 className="animate-spin mb-2" size={32} /><p>Loading details...</p></div>
+                    ) : activeUserDetails ? (
+                       <>
+                          <div className="absolute top-8 right-8">
+                             <button onClick={handleDeleteUser} disabled={deleting} className="flex items-center gap-2 px-4 py-2 border border-red-500/30 text-red-500 rounded-lg text-sm hover:bg-red-500/10 transition-colors">{deleting ? <Loader2 size={16} className="animate-spin"/> : <Trash2 size={16} />} Delete User</button>
+                          </div>
+                          
+                          <div className="flex items-start gap-6 mb-8 border-b border-white/5 pb-8">
+                             <div className="w-24 h-24 rounded-full border-2 border-red-500/20 overflow-hidden bg-gray-900"><img src={getUserImageUrl(activeUserDetails.profile_url)} alt={activeUserDetails.name} className="w-full h-full object-cover" /></div>
+                             <div className="flex-1 pt-2">
+                                <h2 className="text-3xl font-serif text-white mb-2">{activeUserDetails.name || 'Unknown User'}</h2>
+                                <div className="flex gap-2 flex-wrap">
+                                   
+                                   {/* --- USER LEVEL BADGE WITH EDIT --- */}
+                                   <div className={`px-2 py-1 rounded border text-xs font-bold uppercase flex items-center gap-1 cursor-pointer hover:opacity-80 transition-opacity ${getUserLevelInfo(activeUserDetails.level).bg} ${getUserLevelInfo(activeUserDetails.level).color}`}>
+                                      {React.createElement(getUserLevelInfo(activeUserDetails.level).icon, { size: 12 })}
+                                      <span>{getUserLevelInfo(activeUserDetails.level).label}</span>
+                                      <button 
+                                        onClick={() => { setSelectedUserLevel(activeUserDetails.level); setShowUserLevelModal(true); }}
+                                        className="ml-1 p-0.5 rounded-full hover:bg-white/20 text-current transition-colors"
+                                      >
+                                         <Edit3 size={10} />
+                                      </button>
+                                   </div>
+
+                                   {/* --- VERIFICATION STATUS BADGE (NEW) --- */}
+                                   {activeUserDetails.is_verified ? (
+                                      <span className="px-2 py-1 rounded bg-green-500/10 border border-green-500/20 text-green-500 text-xs font-bold uppercase flex items-center gap-1">
+                                         <CheckCircle2 size={12} /> Verified
+                                      </span>
+                                   ) : (
+                                      <span className="px-2 py-1 rounded bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 text-xs font-bold uppercase flex items-center gap-1">
+                                         <XCircle size={12} /> Not Verified
+                                      </span>
+                                   )}
+
+                                </div>
+                             </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                             <DetailItem icon={<Mail size={18} />} label="Email Address" value={activeUserDetails.email} />
+                             <DetailItem icon={<Phone size={18} />} label="Phone Number" value={activeUserDetails.phone_number || 'N/A'} />
+                             <DetailItem icon={<Calendar size={18} />} label="Date Joined" value={new Date(activeUserDetails.created_at).toLocaleDateString()} />
+                             <DetailItem icon={<ShieldCheck size={18} />} label="User ID" value={activeUserDetails.id} />
+                          </div>
+                       </>
+                    ) : (<div className="h-full flex items-center justify-center text-brand-muted">Select a user to view details</div>)}
+                 </div>
+              </div>
            </div>
         )}
 
       </main>
 
-      {/* --- ALL MODALS (Add Agent, Edit Info, Tier, Image) are retained below --- */}
-      
-      {/* Tier Modal */}
+      {/* --- ALL MODALS (Unchanged) ... */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+           <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl w-full max-w-md p-6 relative shadow-2xl">
+              <button onClick={() => setShowAddModal(false)} className="absolute top-4 right-4 text-brand-muted hover:text-white"><X size={20} /></button>
+              <h2 className="text-2xl font-serif text-white mb-6 text-red-500">Add New Agent</h2>
+              <form onSubmit={handleAddAgent} className="space-y-4">
+                 <div className="space-y-1"><label className="text-xs font-semibold text-gray-400">Full Name</label><input required value={newAgentData.name} onChange={e => setNewAgentData({...newAgentData, name: e.target.value})} className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-red-500/50 outline-none" /></div>
+                 <div className="space-y-1"><label className="text-xs font-semibold text-gray-400">Email Address</label><input required type="email" value={newAgentData.email} onChange={e => setNewAgentData({...newAgentData, email: e.target.value})} className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-red-500/50 outline-none" /></div>
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1"><label className="text-xs font-semibold text-gray-400">Phone</label><input required type="tel" value={newAgentData.phone_number} onChange={e => setNewAgentData({...newAgentData, phone_number: e.target.value})} className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-red-500/50 outline-none" /></div>
+                    <div className="space-y-1"><label className="text-xs font-semibold text-gray-400">Tier</label><select value={newAgentData.tier} onChange={e => setNewAgentData({...newAgentData, tier: parseInt(e.target.value)})} className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-red-500/50 outline-none"><option value={1}>Tier 1</option><option value={2}>Tier 2</option><option value={3}>Tier 3</option></select></div>
+                 </div>
+                 <div className="pt-4"><button type="submit" disabled={addingAgent} className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">{addingAgent ? <Loader2 className="animate-spin" /> : 'Create Agent Account'}</button></div>
+              </form>
+           </div>
+        </div>
+      )}
+      {showEditModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+           <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl w-full max-w-sm p-6 relative shadow-2xl">
+              <button onClick={() => setShowEditModal(false)} className="absolute top-4 right-4 text-brand-muted hover:text-white"><X size={20} /></button>
+              <h2 className="text-xl font-serif text-white mb-4">Update Information</h2>
+              <form onSubmit={handleUpdateInfo} className="space-y-4">
+                 <div className="space-y-1"><label className="text-xs font-semibold text-gray-400">Agent Name</label><input required value={editFormData.name} onChange={e => setEditFormData({ ...editFormData, name: e.target.value })} className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-red-500/50 outline-none" /></div>
+                 <button type="submit" disabled={updatingInfo} className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">{updatingInfo ? <Loader2 className="animate-spin" /> : 'Save Changes'}</button>
+              </form>
+           </div>
+        </div>
+      )}
       {showTierModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
            <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl w-full max-w-sm p-6 relative shadow-2xl">
@@ -484,42 +662,6 @@ const AdminDashboardPage = () => {
            </div>
         </div>
       )}
-
-      {/* Add Agent Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-           <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl w-full max-w-md p-6 relative shadow-2xl">
-              <button onClick={() => setShowAddModal(false)} className="absolute top-4 right-4 text-brand-muted hover:text-white"><X size={20} /></button>
-              <h2 className="text-2xl font-serif text-white mb-6 text-red-500">Add New Agent</h2>
-              <form onSubmit={handleAddAgent} className="space-y-4">
-                 {/* ... Form fields (same as previous) ... */}
-                 <div className="space-y-1"><label className="text-xs font-semibold text-gray-400">Full Name</label><input required value={newAgentData.name} onChange={e => setNewAgentData({...newAgentData, name: e.target.value})} className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-red-500/50 outline-none" /></div>
-                 <div className="space-y-1"><label className="text-xs font-semibold text-gray-400">Email Address</label><input required type="email" value={newAgentData.email} onChange={e => setNewAgentData({...newAgentData, email: e.target.value})} className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-red-500/50 outline-none" /></div>
-                 <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1"><label className="text-xs font-semibold text-gray-400">Phone</label><input required type="tel" value={newAgentData.phone_number} onChange={e => setNewAgentData({...newAgentData, phone_number: e.target.value})} className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-red-500/50 outline-none" /></div>
-                    <div className="space-y-1"><label className="text-xs font-semibold text-gray-400">Tier</label><select value={newAgentData.tier} onChange={e => setNewAgentData({...newAgentData, tier: parseInt(e.target.value)})} className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-red-500/50 outline-none"><option value={1}>Tier 1</option><option value={2}>Tier 2</option><option value={3}>Tier 3</option></select></div>
-                 </div>
-                 <div className="pt-4"><button type="submit" disabled={addingAgent} className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">{addingAgent ? <Loader2 className="animate-spin" /> : 'Create Agent Account'}</button></div>
-              </form>
-           </div>
-        </div>
-      )}
-
-      {/* Edit Info Modal */}
-      {showEditModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-           <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl w-full max-w-sm p-6 relative shadow-2xl">
-              <button onClick={() => setShowEditModal(false)} className="absolute top-4 right-4 text-brand-muted hover:text-white"><X size={20} /></button>
-              <h2 className="text-xl font-serif text-white mb-4">Update Information</h2>
-              <form onSubmit={handleUpdateInfo} className="space-y-4">
-                 <div className="space-y-1"><label className="text-xs font-semibold text-gray-400">Agent Name</label><input required value={editFormData.name} onChange={e => setEditFormData({ ...editFormData, name: e.target.value })} className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-red-500/50 outline-none" /></div>
-                 <button type="submit" disabled={updatingInfo} className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">{updatingInfo ? <Loader2 className="animate-spin" /> : 'Save Changes'}</button>
-              </form>
-           </div>
-        </div>
-      )}
-
-      {/* Image Upload Modal */}
       {showImageModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
            <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl w-full max-w-sm p-6 relative shadow-2xl">
@@ -530,6 +672,32 @@ const AdminDashboardPage = () => {
                  <div className="relative"><input type="file" accept="image/*" onChange={handleImageSelect} className="hidden" id="admin-file-upload" /><label htmlFor="admin-file-upload" className="inline-block cursor-pointer px-4 py-2 bg-[#2a2a2a] hover:bg-[#333] text-white text-sm rounded-lg border border-white/10">Select Image</label></div>
                  <button onClick={handleImageUpload} disabled={!selectedFile || uploadingImage} className="w-full bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">{uploadingImage ? <Loader2 className="animate-spin" /> : 'Upload'}</button>
               </div>
+           </div>
+        </div>
+      )}
+      {showUserLevelModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+           <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl w-full max-w-sm p-6 relative shadow-2xl">
+              <button onClick={() => setShowUserLevelModal(false)} className="absolute top-4 right-4 text-brand-muted hover:text-white"><X size={20} /></button>
+              <h2 className="text-xl font-serif text-white mb-4">Change User Level</h2>
+              <p className="text-brand-muted text-sm mb-4">Update the verification status and access level for this user.</p>
+              <form onSubmit={handleUpdateUserLevel} className="space-y-4">
+                 <div className="space-y-1">
+                    <label className="text-xs font-semibold text-gray-400">Select Level</label>
+                    <select 
+                      value={selectedUserLevel} 
+                      onChange={e => setSelectedUserLevel(e.target.value)} 
+                      className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-red-500/50 outline-none"
+                    >
+                       {USER_LEVELS.map(l => (
+                         <option key={l.value} value={l.value}>{l.label}</option>
+                       ))}
+                    </select>
+                 </div>
+                 <button type="submit" disabled={updatingUserLevel} className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
+                    {updatingUserLevel ? <Loader2 className="animate-spin" /> : 'Update Level'}
+                 </button>
+              </form>
            </div>
         </div>
       )}

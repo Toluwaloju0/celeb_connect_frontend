@@ -16,7 +16,7 @@ const getRefreshEndpoint = () => {
     if (user?.role === 'admin') return '/auth/admin/refresh';
     if (user?.role === 'agent') return '/auth/agent/refresh';
     
-    // Default User route updated
+    // Default User route
     return '/auth/token/refresh';
 };
 
@@ -32,14 +32,13 @@ api.interceptors.response.use(
                 try {
                     const refreshEndpoint = getRefreshEndpoint();
                     
-                    // Call Refresh
-                    await api.post(refreshEndpoint);
+                    // UPDATED: Changed from api.post to api.get
+                    await api.get(refreshEndpoint);
                     
                     // Retry Original Request
                     return api(originalRequest);
                 } catch (refreshError) {
                     console.error("Refresh failed", refreshError);
-                    // Fallthrough to logout logic below
                     handleLogout();
                     return Promise.reject(refreshError);
                 }
@@ -47,17 +46,32 @@ api.interceptors.response.use(
         }
         return response;
     },
-    (error) => {
+    async (error) => {
+        const originalRequest = error.config;
+
         // CASE: 500 INTERNAL SERVER ERROR
         if (error.response?.status === 500) {
             alert(error.response.data?.message || "Internal Server Error occurred.");
             return Promise.reject(error);
         }
 
-        // CASE: 401 UNAUTHORIZED
-        if (error.response?.status === 401) {
-            handleLogout();
-            return Promise.reject(error);
+        // CASE: 401 UNAUTHORIZED (Standard Token Expiry)
+        if (error.response?.status === 401 && !originalRequest._retry) {
+            originalRequest._retry = true;
+
+            try {
+                const refreshEndpoint = getRefreshEndpoint();
+
+                // UPDATED: Changed from api.post to api.get
+                await api.get(refreshEndpoint);
+
+                // Retry Original Request
+                return api(originalRequest);
+            } catch (refreshError) {
+                console.error("Session expired", refreshError);
+                handleLogout();
+                return Promise.reject(refreshError);
+            }
         }
 
         return Promise.reject(error);
@@ -67,8 +81,16 @@ api.interceptors.response.use(
 // Helper function to clear state and redirect
 const handleLogout = () => {
     localStorage.removeItem('user');
-    // Always redirect to the main User Login page as requested
-    window.location.href = '/login';
+    
+    // Redirect based on current path to send them to the correct login page
+    const path = window.location.pathname;
+    if (path.startsWith('/admin')) {
+        window.location.href = '/admin/login';
+    } else if (path.startsWith('/agent')) {
+        window.location.href = '/agent/login';
+    } else {
+        window.location.href = '/login';
+    }
 };
 
 export default api;
