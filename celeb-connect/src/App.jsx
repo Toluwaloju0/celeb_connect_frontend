@@ -10,6 +10,11 @@ import HomePage from './pages/HomePage';
 import EmailVerificationPage from './pages/EmailVerificationPage';
 import VerificationCenterPage from './pages/VerificationCenterPage';
 import ValidateOtpPage from './pages/ValidateOtpPage';
+import BookExperiencePage from './pages/BookExperiencePage'; // User Booking Flow
+import UserBookingsPage from './pages/UserBookingsPage';     // User My Bookings
+import PaymentPage from './pages/PaymentPage';
+
+// Admin Pages
 import AdminLoginPage from './pages/AdminLoginPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 
@@ -17,7 +22,9 @@ import AdminDashboardPage from './pages/AdminDashboardPage';
 import AgentLoginPage from './pages/AgentLoginPage';
 import AgentDashboardPage from './pages/AgentDashboardPage';
 import AgentUpdatePasswordPage from './pages/AgentUpdatePasswordPage';
-import AgentEditCelebrityPage from './pages/AgentEditCelebrityPage'; // NEW
+import AgentEditCelebrityPage from './pages/AgentEditCelebrityPage';
+import AgentSchedulePage from './pages/AgentSchedulePage';
+import AgentBookingsPage from './pages/AgentBookingsPage';
 
 function App() {
   return (
@@ -32,6 +39,13 @@ function App() {
           <Route path="/verify/email" element={<EmailVerificationPage />} />
           <Route path="/verification/center" element={<VerificationCenterPage />} />
           <Route path="/validate/otp" element={<ValidateOtpPage />} />
+          
+          {/* UPDATED: Changed from /book-experience to /book/experience */}
+          <Route path="/book/experience" element={<BookExperiencePage />} />
+          
+          {/* UPDATED: Changed from /my-bookings to /my/bookings */}
+          <Route path="/my/bookings" element={<UserBookingsPage />} />
+          <Route path="/payment/:bookingId" element={<PaymentPage />} />
 
           {/* Admin Routes */}
           <Route path="/admin/login" element={<AdminLoginPage />} />
@@ -40,9 +54,13 @@ function App() {
           {/* Agent Routes */}
           <Route path="/agent/login" element={<AgentLoginPage />} />
           <Route path="/agent/dashboard" element={<AgentDashboardPage />} />
-          <Route path="/agent/update-password" element={<AgentUpdatePasswordPage />} />
-          {/* New Edit Route */}
+          
+          {/* UPDATED: Changed from /agent/update-password to /agent/update/password */}
+          <Route path="/agent/update/password" element={<AgentUpdatePasswordPage />} />
+          
           <Route path="/agent/celeb/edit/:id" element={<AgentEditCelebrityPage />} />
+          <Route path="/agent/schedule" element={<AgentSchedulePage />} />
+          <Route path="/agent/bookings" element={<AgentBookingsPage />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

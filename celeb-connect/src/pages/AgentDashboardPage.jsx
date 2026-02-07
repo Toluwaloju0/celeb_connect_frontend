@@ -2,32 +2,38 @@ import React, { useState, useEffect } from 'react';
 import { 
   Search, Plus, Calendar, Edit3, User, CheckCircle2, 
   ChevronDown, Users, Loader2, X, MapPin, Briefcase, Heart,
-  LogOut 
+  LogOut, Clock // Clock icon for bookings
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom'; // Added useNavigate
 import api from '../api/axios';
 
 const AgentDashboardPage = () => {
   const { user, agentLogout } = useAuth();
+  const navigate = useNavigate(); // Initialize navigation hook
   const [activeTab, setActiveTab] = useState('roster');
   
-  // ... (State variables remain the same) ...
   const [celebrities, setCelebrities] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [activeCelebDetails, setActiveCelebDetails] = useState(null);
+  
   const [loadingRoster, setLoadingRoster] = useState(true);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [addingCeleb, setAddingCeleb] = useState(false);
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [addFormData, setAddFormData] = useState({
-    name: '', location: '', profession: '', marital_status: ''
+    name: '',
+    location: '',
+    profession: '',
+    marital_status: ''
   });
 
   const PICTURE_BASE = import.meta.env.VITE_PICTURE_BASE;
 
-  // ... (useEffect and API functions remain the same) ...
-  useEffect(() => { fetchRoster(); }, []);
+  useEffect(() => {
+    fetchRoster();
+  }, []);
 
   const fetchRoster = async () => {
     setLoadingRoster(true);
@@ -91,22 +97,14 @@ const AgentDashboardPage = () => {
   const getImageUrl = (filename) => {
     if (!filename) return "https://images.unsplash.com/photo-1511367461989-f85a21fda167?q=80&w=1000&auto=format&fit=crop"; 
     if (filename.startsWith('http') || filename.startsWith('https')) return filename;
-    const cleanDir = PICTURE_BASE.replace(/^\/+|\/+$/g, '');
+    const cleanDir = PICTURE_BASE ? PICTURE_BASE.replace(/^\/+|\/+$/g, '') : 'uploads';
     return `/${cleanDir}/agent/${filename}`;
   };
 
-  // --- EXPLICIT LOGOUT HANDLER ---
+  // Logout Handler
   const handleLogoutClick = (e) => {
-    e.preventDefault(); // Stop any form submission bubbling
-    console.log("Logout Clicked"); // Debugging
-    if (agentLogout) {
-      agentLogout();
-    } else {
-      console.error("agentLogout function not found in context");
-      // Fallback
-      localStorage.removeItem('user');
-      window.location.href = '/agent/login';
-    }
+    e.preventDefault();
+    if (agentLogout) agentLogout();
   };
 
   return (
@@ -121,13 +119,10 @@ const AgentDashboardPage = () => {
                <p className="text-[10px] text-brand-muted uppercase tracking-wider">Agent Portal</p>
             </div>
           </div>
-          
-          {/* LOGOUT BUTTON */}
-          {/* Added type="button" and explicit handler */}
           <button 
             type="button"
             onClick={handleLogoutClick}
-            className="flex items-center gap-2 text-sm font-medium text-brand-muted hover:text-red-500 transition-colors z-50 cursor-pointer"
+            className="flex items-center gap-2 text-sm font-medium text-brand-muted hover:text-red-500 transition-colors cursor-pointer"
           >
              <LogOut size={18} /> Sign Out
           </button>
@@ -135,7 +130,6 @@ const AgentDashboardPage = () => {
       </nav>
 
       <main className="max-w-7xl mx-auto px-6 py-8">
-        {/* ... Rest of the Main content remains exactly the same as previous step ... */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
            <div>
               <h1 className="text-3xl font-serif text-white font-bold mb-1">Agent Dashboard</h1>
@@ -146,12 +140,35 @@ const AgentDashboardPage = () => {
            </button>
         </div>
 
+        {/* --- TAB NAVIGATION --- */}
         <div className="flex items-center gap-8 border-b border-white/10 mb-8">
-           <TabItem label="Celebrity Roster" icon={<Users size={18} />} active={activeTab === 'roster'} onClick={() => setActiveTab('roster')} />
-           <TabItem label="Schedule Management" icon={<Calendar size={18} />} active={activeTab === 'schedule'} onClick={() => setActiveTab('schedule')} />
+           {/* Roster Tab */}
+           <TabItem 
+             label="Celebrity Roster" 
+             icon={<Users size={18} />} 
+             active={activeTab === 'roster'} 
+             onClick={() => setActiveTab('roster')} 
+           />
+           
+           {/* Schedule Link */}
+           <button 
+             onClick={() => navigate('/agent/schedule')} 
+             className="flex items-center gap-2 pb-4 text-sm font-medium transition-all text-brand-muted hover:text-white cursor-pointer"
+           >
+             <Calendar size={18} /> Set Availability
+           </button>
+
+           {/* View Bookings Link */}
+           <button 
+             onClick={() => navigate('/agent/bookings')} 
+             className="flex items-center gap-2 pb-4 text-sm font-medium transition-all text-brand-muted hover:text-white cursor-pointer"
+           >
+             <Clock size={18} /> View Bookings
+           </button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+           {/* LIST */}
            <div className="lg:col-span-4 space-y-4">
               <div className="relative">
                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
@@ -184,6 +201,7 @@ const AgentDashboardPage = () => {
               </div>
            </div>
 
+           {/* DETAILS */}
            <div className="lg:col-span-8">
               <div className="bg-[#1a1a1a] border border-white/10 rounded-3xl p-8 h-full min-h-[500px]">
                  {loadingDetails ? (
@@ -206,7 +224,7 @@ const AgentDashboardPage = () => {
                              <Link to={`/agent/celeb/edit/${activeCelebDetails.id}`} className="flex items-center gap-2 px-4 py-2 border border-white/10 rounded-lg text-sm text-white hover:bg-white/5 transition-colors">
                                 <Edit3 size={16} /> Edit Profile
                              </Link>
-                             <button className="flex items-center gap-2 px-4 py-2 border border-white/10 rounded-lg text-sm text-white hover:bg-white/5 transition-colors">
+                             <button onClick={() => navigate('/agent/schedule')} className="flex items-center gap-2 px-4 py-2 border border-white/10 rounded-lg text-sm text-white hover:bg-white/5 transition-colors">
                                 <Calendar size={16} /> Set Availability
                              </button>
                           </div>
@@ -233,6 +251,7 @@ const AgentDashboardPage = () => {
         </div>
       </main>
 
+      {/* Add Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
            <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl w-full max-w-lg p-6 relative shadow-2xl">
@@ -254,7 +273,7 @@ const AgentDashboardPage = () => {
   );
 };
 
-// Sub Components... (Same as before)
+// Sub Components
 const TabItem = ({ label, icon, active, onClick }) => (<button onClick={onClick} className={`flex items-center gap-2 pb-4 text-sm font-medium transition-all relative ${active ? 'text-brand-gold' : 'text-brand-muted hover:text-white'}`}>{icon} {label}{active && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-brand-gold rounded-t-full"></span>}</button>);
 const DropdownFilter = ({ label }) => (<button className="w-full flex justify-between items-center bg-[#1a1a1a] border border-white/10 rounded-xl px-4 py-3 text-sm text-white hover:border-white/20 transition-colors"><span>{label}</span><ChevronDown size={16} className="text-gray-500" /></button>);
 const DetailBox = ({ icon, label, value }) => (<div className="bg-[#121212] border border-white/5 p-4 rounded-xl flex items-center gap-3"><div className="text-brand-gold">{icon}</div><div><p className="text-[10px] text-brand-muted uppercase">{label}</p><p className="text-white font-medium text-sm">{value}</p></div></div>);
