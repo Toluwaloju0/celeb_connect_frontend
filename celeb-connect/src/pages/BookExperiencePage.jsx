@@ -122,7 +122,7 @@ const BookExperiencePage = () => {
     setShowBookingModal(true);
   };
 
-  // --- 5. SUBMIT BOOKING (FIXED) ---
+  // --- 5. SUBMIT BOOKING (UPDATED LOGIC) ---
   const handleConfirmBooking = async () => {
     if (!selectedCeleb || !selectedDay) return;
     
@@ -133,28 +133,10 @@ const BookExperiencePage = () => {
         type: bookingType      
       });
 
-      console.log("Booking Response:", response.data); // Debugging line
-
       if (response.data.status === true) {
-        // Safe check for ID location
-        const data = response.data.data;
-        let bookingId = null;
-
-        // Check if 'data' contains 'id' or 'booking_id' or is the ID itself
-        if (data && typeof data === 'object') {
-            bookingId = data.id || data.booking_id;
-        } else if (typeof data === 'string' || typeof data === 'number') {
-            bookingId = data;
-        }
-
-        if (bookingId) {
-            navigate(`/payment/${bookingId}`); 
-        } else {
-            // Fallback if booking was successful but ID isn't clear
-            console.warn("Booking successful but ID missing in expected format", data);
-            alert("Booking request submitted! Redirecting to dashboard.");
-            navigate('/my-bookings');
-        }
+        // UPDATED: Alert success and redirect to My Bookings
+        alert("Booking request submitted successfully!");
+        navigate('/my/bookings'); 
       } else {
         alert(response.data.message || "Booking failed.");
       }
@@ -294,6 +276,7 @@ const BookExperiencePage = () => {
          {view === 'availability' && renderAvailability()}
       </main>
 
+      {/* --- BOOKING TYPE MODAL --- */}
       {showBookingModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
            <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl w-full max-w-md p-6 relative shadow-2xl">
@@ -312,7 +295,14 @@ const BookExperiencePage = () => {
 
               <div className="flex gap-3">
                  <button onClick={() => setShowBookingModal(false)} className="flex-1 py-3 bg-[#2a2a2a] hover:bg-[#333] text-white rounded-xl text-sm font-bold transition-colors">Cancel</button>
-                 <button onClick={handleConfirmBooking} disabled={bookingLoading} className="flex-1 py-3 bg-brand-gold hover:bg-yellow-500 text-black rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2">{bookingLoading ? <Loader2 className="animate-spin" /> : 'Proceed to Payment'}</button>
+                 <button 
+                   onClick={handleConfirmBooking}
+                   disabled={bookingLoading}
+                   className="flex-1 py-3 bg-brand-gold hover:bg-yellow-500 text-black rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2"
+                 >
+                    {/* UPDATED BUTTON TEXT */}
+                    {bookingLoading ? <Loader2 className="animate-spin" /> : 'Book Experience'}
+                 </button>
               </div>
            </div>
         </div>

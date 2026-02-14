@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { 
   Star, Calendar, User, CheckCircle2, AlertTriangle, 
   CreditCard, ShieldCheck, LayoutDashboard, Crown, Bell, Clock, ChevronRight,
-  LogOut, Loader2, X, MapPin, Briefcase
+  LogOut, Loader2, X, MapPin, Briefcase, Bitcoin, MessageCircle, Mail
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
@@ -25,7 +25,10 @@ const HomePage = () => {
   // Modal State
   const [showDetailModal, setShowDetailModal] = useState(false);
 
+  // Environment Variables
   const PICTURE_BASE = import.meta.env.VITE_PICTURE_BASE;
+  const PAYMENT_EMAIL = import.meta.env.VITE_PAYMENT_EMAIL;
+  const PAYMENT_WHATSAPP = import.meta.env.VITE_PAYMENT_WHATSAPP;
 
   // --- AUTH CHECK ---
   useEffect(() => {
@@ -59,7 +62,7 @@ const HomePage = () => {
     try {
       const response = await api.get('/user/bookings');
       if (response.data.status === true && Array.isArray(response.data.data)) {
-        setBookings(response.data.data);
+        setBookings(response.data.data.slice(0, 5)); // Limit to recent 5 on dashboard
       }
     } catch (error) {
       console.error("Error fetching bookings", error);
@@ -70,7 +73,7 @@ const HomePage = () => {
 
   const handleViewBooking = async (bookingId) => {
     setLoadingDetails(true);
-    setShowDetailModal(true); // Open modal immediately with loader
+    setShowDetailModal(true); 
     try {
       // GET /user/bookings/{booking_id}
       const response = await api.get(`/user/bookings/${bookingId}`);
@@ -84,6 +87,23 @@ const HomePage = () => {
     } finally {
       setLoadingDetails(false);
     }
+  };
+
+  // --- PAYMENT HANDLERS ---
+  const getPaymentMessage = () => {
+    if (!selectedBooking) return "";
+    return `Hello, I would like to confirm payment for Booking ID: ${selectedBooking.id}. Please find the attached payment proof.`;
+  };
+
+  const handleWhatsAppPayment = () => {
+    const message = encodeURIComponent(getPaymentMessage());
+    window.open(`https://wa.me/${PAYMENT_WHATSAPP}?text=${message}`, '_blank');
+  };
+
+  const handleEmailPayment = () => {
+    const subject = encodeURIComponent(`Payment Confirmation - Booking ${selectedBooking.id}`);
+    const body = encodeURIComponent(getPaymentMessage());
+    window.open(`mailto:${PAYMENT_EMAIL}?subject=${subject}&body=${body}`, '_blank');
   };
 
   // --- HELPERS ---
@@ -116,7 +136,7 @@ const HomePage = () => {
     if (!filename) return "https://images.unsplash.com/photo-1511367461989-f85a21fda167?q=80&w=1000&auto=format&fit=crop";
     if (filename.startsWith('http')) return filename;
     const cleanDir = PICTURE_BASE ? PICTURE_BASE.replace(/^\/+|\/+$/g, '') : 'uploads';
-    return `/${cleanDir}/agent/${filename}`; // Assuming celeb images are stored here
+    return `/${cleanDir}/agent/${filename}`; 
   };
 
   const badgeProps = getLevelBadge(user?.level);
@@ -139,21 +159,9 @@ const HomePage = () => {
 
           <div className="hidden md:flex items-center gap-1">
              <NavItem icon={<LayoutDashboard size={18} />} label="Dashboard" active />
-             <NavItem 
-                icon={<Star size={18} />} 
-                label="Book Experience" 
-                onClick={() => navigate('/book/experience')} 
-             />
-             {/* <NavItem icon={<Calendar size={18} />} label="My Bookings" /> */}
-             <NavItem 
-                icon={<Calendar size={18} />} 
-                label="My Bookings" 
-                onClick={() => navigate('/my/bookings')} 
-             />
-             <button 
-               onClick={handleVerificationClick}
-               className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors text-brand-muted hover:text-white hover:bg-white/5"
-             >
+             <NavItem icon={<Star size={18} />} label="Book Experience" onClick={() => navigate('/book/experience')} />
+             <NavItem icon={<Calendar size={18} />} label="My Bookings" onClick={() => navigate('/my/bookings')} />
+             <button onClick={handleVerificationClick} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors text-brand-muted hover:text-white hover:bg-white/5">
                 <ShieldCheck size={18} /> Verification
              </button>
           </div>
@@ -214,8 +222,8 @@ const HomePage = () => {
            <div className="lg:col-span-2 space-y-8">
               <div>
                  <div className="flex justify-between items-end mb-4">
-                    <h3 className="text-xl font-serif text-white">Your Bookings</h3>
-                    <button className="text-xs text-white hover:text-brand-gold transition-colors">View All →</button>
+                    <h3 className="text-xl font-serif text-white">Recent Bookings</h3>
+                    <button onClick={() => navigate('/my/bookings')} className="text-xs text-white hover:text-brand-gold transition-colors">View All →</button>
                  </div>
                  
                  <div className="space-y-4">
@@ -235,7 +243,6 @@ const HomePage = () => {
                              <div className="flex justify-between items-start relative z-10">
                                 <div className="flex items-center gap-3">
                                    <div className="w-12 h-12 rounded-full bg-gray-800 overflow-hidden border border-white/10">
-                                      {/* Assuming booking object has celeb_name and celeb_image or similar */}
                                       <img src={getImageUrl(booking.celeb_image_url)} alt="Celeb" className="w-full h-full object-cover" />
                                    </div>
                                    <div>
@@ -255,7 +262,7 @@ const HomePage = () => {
                  </div>
               </div>
 
-              {/* Recommended Section (Static Placeholder for now) */}
+              {/* Recommended Section (Placeholder) */}
               <div>
                  <div className="flex justify-between items-end mb-4">
                     <h3 className="text-xl font-serif text-white">Recommended For You</h3>
@@ -274,12 +281,7 @@ const HomePage = () => {
                   <div onClick={handleVerificationClick}>
                     <ActionRow icon={<ShieldCheck />} title="Verification Center" subtitle="Upgrade your level" />
                   </div>
-                  <ActionRow 
-                    icon={<Calendar />} 
-                    title="Book a Celebrity" 
-                    subtitle="Explore roster" 
-                    onClick={() => navigate('/book/experience')}
-                  />
+                  <ActionRow icon={<Calendar />} title="Book a Celebrity" subtitle="Explore roster" onClick={() => navigate('/book/experience')} />
                   <ActionRow icon={<CreditCard />} title="Payment Methods" subtitle="Manage saved options" />
                   <ActionRow icon={<Bell />} title="Notification Settings" subtitle="Customize alerts" />
                 </div>
@@ -337,22 +339,50 @@ const HomePage = () => {
                        </div>
                        <div className="flex justify-between items-center">
                           <span className="text-brand-muted text-xs flex items-center gap-2"><Briefcase size={14}/> Service Type</span>
-                          <span className="text-white text-sm">{selectedBooking.service_type || 'General Booking'}</span>
+                          <span className="text-white text-sm">{selectedBooking.service_type || selectedBooking.type || 'General Booking'}</span>
                        </div>
                     </div>
 
-                    <div className="mt-6 flex gap-3">
+                    {/* Price Section */}
+                    {selectedBooking.price && (
+                       <div className="bg-[#121212] border border-brand-gold/20 rounded-xl p-4 my-4">
+                          <p className="text-xs text-brand-muted uppercase tracking-wider mb-2 font-bold">Booking Cost</p>
+                          <div className="flex justify-between items-center mb-2">
+                             <span className="text-gray-400 text-sm flex items-center gap-1"><CreditCard size={14}/> USD</span>
+                             <span className="text-white font-bold font-mono">${selectedBooking.price.usd?.toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                             <span className="text-gray-400 text-sm flex items-center gap-1"><Bitcoin size={14}/> BTC</span>
+                             <span className="text-brand-gold font-bold font-mono">{selectedBooking.price.btc} BTC</span>
+                          </div>
+                       </div>
+                    )}
+
+                    <div className="mt-6 pt-4 border-t border-white/10 space-y-3">
+                       {/* PAYMENT BUTTONS */}
+                       {selectedBooking.status === 'Pending' && (
+                          <div className="grid grid-cols-2 gap-3">
+                             <button 
+                               onClick={handleWhatsAppPayment}
+                               className="py-3 bg-green-600 hover:bg-green-500 text-white rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2"
+                             >
+                                <MessageCircle size={16} /> WhatsApp
+                             </button>
+                             <button 
+                               onClick={handleEmailPayment}
+                               className="py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2"
+                             >
+                                <Mail size={16} /> Email
+                             </button>
+                          </div>
+                       )}
+
                        <button 
                          onClick={() => setShowDetailModal(false)}
-                         className="flex-1 py-3 bg-[#2a2a2a] hover:bg-[#333] text-white rounded-xl text-sm font-bold transition-colors"
+                         className="w-full py-3 bg-[#2a2a2a] hover:bg-[#333] text-white rounded-xl text-sm font-bold transition-colors"
                        >
                           Close
                        </button>
-                       {selectedBooking.status === 'Pending' && (
-                          <button className="flex-1 py-3 bg-brand-gold hover:bg-yellow-500 text-black rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2">
-                             <CreditCard size={16} /> Proceed to Pay
-                          </button>
-                       )}
                     </div>
                  </>
               )}
@@ -366,10 +396,7 @@ const HomePage = () => {
 
 // --- SUB COMPONENTS ---
 const NavItem = ({ icon, label, active, onClick }) => (
-  <button 
-    onClick={onClick}
-    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${active ? 'bg-brand-gold text-black' : 'text-brand-muted hover:text-white hover:bg-white/5'}`}
-  >
+  <button onClick={onClick} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${active ? 'bg-brand-gold text-black' : 'text-brand-muted hover:text-white hover:bg-white/5'}`}>
     {icon} {label}
   </button>
 );
@@ -383,10 +410,7 @@ const StatBox = ({ icon, val, label, loading }) => (
 );
 
 const ActionRow = ({ icon, title, subtitle, onClick }) => (
-  <div 
-    onClick={onClick}
-    className="flex items-center justify-between p-3 rounded-xl hover:bg-white/5 cursor-pointer transition-colors group"
-  >
+  <div onClick={onClick} className="flex items-center justify-between p-3 rounded-xl hover:bg-white/5 cursor-pointer transition-colors group">
      <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-lg bg-black border border-white/10 flex items-center justify-center text-brand-gold group-hover:text-white transition-colors">
            {icon}
