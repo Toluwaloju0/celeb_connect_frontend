@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   Star, Calendar, User, CheckCircle2, AlertTriangle, 
   CreditCard, Loader2, X, MapPin, Briefcase, Clock, 
-  ChevronRight, Filter, LogOut, LayoutDashboard, ShieldCheck
+  ChevronRight, Filter, LogOut, LayoutDashboard, ShieldCheck,
+  Bitcoin, Mail, MessageCircle // Added icons
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -22,7 +23,10 @@ const UserBookingsPage = () => {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [filter, setFilter] = useState('All');
 
+  // Environment Variables
   const PICTURE_BASE = import.meta.env.VITE_PICTURE_BASE;
+  const PAYMENT_EMAIL = import.meta.env.VITE_PAYMENT_EMAIL;
+  const PAYMENT_WHATSAPP = import.meta.env.VITE_PAYMENT_WHATSAPP;
 
   // --- FETCH BOOKINGS ---
   useEffect(() => {
@@ -60,6 +64,23 @@ const UserBookingsPage = () => {
     } finally {
       setLoadingDetails(false);
     }
+  };
+
+  // --- PAYMENT HANDLERS ---
+  const getPaymentMessage = () => {
+    if (!selectedBooking) return "";
+    return `Hello, I would like to confirm payment for Booking ID: ${selectedBooking.id}. Please find the attached payment proof.`;
+  };
+
+  const handleWhatsAppPayment = () => {
+    const message = encodeURIComponent(getPaymentMessage());
+    window.open(`https://wa.me/${PAYMENT_WHATSAPP}?text=${message}`, '_blank');
+  };
+
+  const handleEmailPayment = () => {
+    const subject = encodeURIComponent(`Payment Confirmation - Booking ${selectedBooking.id}`);
+    const body = encodeURIComponent(getPaymentMessage());
+    window.open(`mailto:${PAYMENT_EMAIL}?subject=${subject}&body=${body}`, '_blank');
   };
 
   // --- HELPERS ---
@@ -159,14 +180,11 @@ const UserBookingsPage = () => {
                       onClick={() => handleViewDetails(booking.id)}
                       className="bg-[#1a1a1a] border border-white/10 rounded-2xl overflow-hidden hover:border-brand-gold/30 transition-all cursor-pointer group"
                     >
-                       {/* Top Banner */}
                        <div className="h-24 bg-gradient-to-r from-gray-900 to-black relative">
                           <div className={`absolute top-4 right-4 px-2 py-1 rounded text-[10px] font-bold uppercase border ${getStatusColor(booking.status)}`}>
                              {booking.status}
                           </div>
                        </div>
-                       
-                       {/* Content */}
                        <div className="px-6 pb-6 -mt-10 relative">
                           <div className="flex justify-between items-end">
                              <div className="w-20 h-20 rounded-full border-4 border-[#1a1a1a] overflow-hidden bg-gray-800">
@@ -176,11 +194,9 @@ const UserBookingsPage = () => {
                                 View Details <ChevronRight size={12} />
                              </span>
                           </div>
-                          
                           <div className="mt-3">
                              <h3 className="text-lg font-bold text-white font-serif">{booking.celeb_name || 'Celebrity'}</h3>
                              <p className="text-brand-gold text-xs font-medium mb-3">{booking.service_type || 'General Booking'}</p>
-                             
                              <div className="space-y-2 bg-black/20 p-3 rounded-xl border border-white/5 text-xs text-brand-muted">
                                 <div className="flex justify-between">
                                    <span className="flex items-center gap-1"><Calendar size={12} /> Date</span>
@@ -204,13 +220,14 @@ const UserBookingsPage = () => {
       {/* --- DETAIL MODAL --- */}
       {showDetailModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-           <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl w-full max-w-md p-6 relative shadow-2xl">
+           <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl w-full max-w-md p-6 relative shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar">
               <button onClick={() => setShowDetailModal(false)} className="absolute top-4 right-4 text-brand-muted hover:text-white"><X size={20} /></button>
 
               {loadingDetails || !selectedBooking ? (
                  <div className="py-10 flex justify-center"><Loader2 className="animate-spin text-brand-gold" /></div>
               ) : (
                  <>
+                    {/* Header */}
                     <div className="text-center mb-6">
                        <div className="w-24 h-24 mx-auto rounded-full border-2 border-brand-gold/30 overflow-hidden mb-3">
                           <img src={getImageUrl(selectedBooking.celeb_image_url)} alt="Celeb" className="w-full h-full object-cover" />
@@ -221,31 +238,55 @@ const UserBookingsPage = () => {
                        </div>
                     </div>
 
-                    <div className="space-y-4">
-                       <DetailRow icon={<Briefcase size={14}/>} label="Service" value={selectedBooking.service_type || 'N/A'} />
-                       <DetailRow icon={<Calendar size={14}/>} label="Date" value={new Date(selectedBooking.created_at).toLocaleDateString()} />
-                       <DetailRow icon={<MapPin size={14}/>} label="Location" value={selectedBooking.location || 'Online / TBD'} />
-                       <DetailRow icon={<CreditCard size={14}/>} label="Payment Status" value={selectedBooking.status === 'Paid' ? 'Completed' : 'Pending'} />
+                    {/* Basic Info */}
+                    <div className="space-y-3 mb-6">
+                       <DetailRow icon={<Briefcase size={14}/>} label="Service" value={selectedBooking.type || selectedBooking.service_type || 'N/A'} />
+                       <DetailRow icon={<Calendar size={14}/>} label="Day" value={selectedBooking.day || 'N/A'} />
+                       <DetailRow icon={<Clock size={14}/>} label="Created At" value={new Date(selectedBooking.created_at).toLocaleDateString()} />
                     </div>
 
-                    {/* ACTIONS */}
-                    <div className="mt-8 pt-6 border-t border-white/10 flex gap-3">
+                    {/* Price Section */}
+                    {selectedBooking.price && (
+                       <div className="bg-[#121212] border border-brand-gold/20 rounded-xl p-4 mb-6">
+                          <p className="text-xs text-brand-muted uppercase tracking-wider mb-2 font-bold">Booking Cost</p>
+                          <div className="flex justify-between items-center mb-2">
+                             <span className="text-gray-400 text-sm flex items-center gap-1"><CreditCard size={14}/> USD</span>
+                             <span className="text-white font-bold font-mono">${selectedBooking.price.usd?.toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                             <span className="text-gray-400 text-sm flex items-center gap-1"><Bitcoin size={14}/> BTC</span>
+                             <span className="text-brand-gold font-bold font-mono">{selectedBooking.price.btc} BTC</span>
+                          </div>
+                       </div>
+                    )}
+
+                    {/* Actions */}
+                    <div className="mt-4 pt-4 border-t border-white/10 space-y-3">
+                       
+                       {/* Payment Buttons (Only if Pending) */}
+                       {selectedBooking.status === 'Pending' && (
+                          <div className="grid grid-cols-2 gap-3 mb-3">
+                             <button 
+                               onClick={handleWhatsAppPayment}
+                               className="py-3 bg-green-600 hover:bg-green-500 text-white rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2"
+                             >
+                                <MessageCircle size={16} /> WhatsApp
+                             </button>
+                             <button 
+                               onClick={handleEmailPayment}
+                               className="py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2"
+                             >
+                                <Mail size={16} /> Email
+                             </button>
+                          </div>
+                       )}
+
                        <button 
                          onClick={() => setShowDetailModal(false)} 
-                         className="flex-1 py-3 bg-[#2a2a2a] hover:bg-[#333] text-white rounded-xl text-sm font-bold transition-colors"
+                         className="w-full py-3 bg-[#2a2a2a] hover:bg-[#333] text-white rounded-xl text-sm font-bold transition-colors"
                        >
-                          Close
+                          Close Details
                        </button>
-
-                       {/* PAYMENT BUTTON FOR PENDING BOOKINGS */}
-                       {selectedBooking.status === 'Pending' && (
-                          <button 
-                            onClick={() => navigate(`/payment/${selectedBooking.id}`)}
-                            className="flex-1 py-3 bg-brand-gold hover:bg-yellow-500 text-black rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2"
-                          >
-                             <CreditCard size={16} /> Proceed to Payment
-                          </button>
-                       )}
                     </div>
                  </>
               )}

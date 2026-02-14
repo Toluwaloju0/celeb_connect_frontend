@@ -3,7 +3,8 @@ import {
   Search, Users, Star, UserCheck, Loader2, 
   Briefcase, Mail, Phone, Calendar, ShieldCheck, ChevronRight,
   Plus, X, Edit3, Trash2, Camera, LogOut, Upload, Image as ImageIcon,
-  Award, MapPin, ChevronLeft, User, Crown, AlertTriangle, CheckCircle2, XCircle
+  Award, MapPin, ChevronLeft, User, Crown, AlertTriangle, CheckCircle2, XCircle,
+  Ticket, CreditCard // Added CreditCard icon
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
@@ -38,6 +39,12 @@ const AdminDashboardPage = () => {
   const [userPage, setUserPage] = useState(1);
   const [userLimit] = useState(10); 
   const [hasMoreUsers, setHasMoreUsers] = useState(true);
+
+  // --- BOOKING STATE ---
+  const [bookingQuery, setBookingQuery] = useState('');
+  const [searchedBooking, setSearchedBooking] = useState(null);
+  const [searchingBooking, setSearchingBooking] = useState(false);
+  const [updatingBooking, setUpdatingBooking] = useState(false); // New state for update loading
 
   // --- ACTIONS STATE ---
   const [showAddModal, setShowAddModal] = useState(false);
@@ -191,7 +198,52 @@ const AdminDashboardPage = () => {
     fetchUserDetails();
   }, [selectedUserId, activeSection]);
 
-  // --- HANDLERS (Same as before) ---
+  // --- BOOKING HANDLERS ---
+  const handleSearchBooking = async (e) => {
+    e.preventDefault();
+    if (!bookingQuery.trim()) return;
+
+    setSearchingBooking(true);
+    setSearchedBooking(null); 
+
+    try {
+      const response = await api.get(`/admin/bookings/${bookingQuery.trim()}`);
+      
+      if (response.data.status === true) {
+        setSearchedBooking(response.data.data);
+      } else {
+        alert(response.data.message || "Booking not found");
+      }
+    } catch (error) {
+      console.error("Search error", error);
+      alert(error.response?.data?.message || "Booking not found or error occurred.");
+    } finally {
+      setSearchingBooking(false);
+    }
+  };
+
+  // --- NEW: UPDATE BOOKING STATUS HANDLER ---
+  const handleUpdateBookingStatus = async () => {
+    if (!searchedBooking) return;
+    setUpdatingBooking(true);
+    try {
+        // PATCH /admin/bookings/{booking_id}
+        const response = await api.patch(`/admin/bookings/${searchedBooking.id}`, { status: 'Paid' });
+        
+        if (response.data.status === true) {
+            setSearchedBooking(prev => ({ ...prev, status: 'Paid' }));
+            alert("Booking marked as Paid successfully.");
+        } else {
+            alert(response.data.message || "Update failed");
+        }
+    } catch (error) {
+        alert(error.response?.data?.message || "Error updating booking status");
+    } finally {
+        setUpdatingBooking(false);
+    }
+  };
+
+  // --- HANDLERS (Agent/User Actions) ---
   const handleAddAgent = async (e) => {
     e.preventDefault();
     setAddingAgent(true);
@@ -409,16 +461,17 @@ const AdminDashboardPage = () => {
         </div>
 
         {/* Tabs */}
-        <div className="grid grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-4 gap-4 mb-8">
            <NavCard title="Agents" icon={<Briefcase />} active={activeSection === 'agents'} onClick={() => setActiveSection('agents')} count={agents.length > 0 ? agents.length : '--'} />
            <NavCard title="Celebrities" icon={<Star />} active={activeSection === 'celebrities'} onClick={() => setActiveSection('celebrities')} count={celebrities.length > 0 ? celebrities.length : '--'} />
            <NavCard title="Users" icon={<Users />} active={activeSection === 'users'} onClick={() => setActiveSection('users')} count={users.length > 0 ? users.length : '--'} />
+           <NavCard title="Bookings" icon={<Ticket />} active={activeSection === 'bookings'} onClick={() => setActiveSection('bookings')} />
         </div>
 
         {/* --- SECTION: AGENTS --- */}
         {activeSection === 'agents' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-             {/* ... (Agents List & Details code remains identical to previous versions) ... */}
+             {/* ... (Agent list and details remain same) ... */}
              <div className="lg:col-span-4 space-y-4">
                 <div className="relative">
                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
@@ -482,6 +535,7 @@ const AdminDashboardPage = () => {
         {/* --- SECTION: CELEBRITIES --- */}
         {activeSection === 'celebrities' && (
           <div className="space-y-6">
+             {/* ... (Celeb List logic remains same) ... */}
              <div className="min-h-[400px]">
                 {loadingCelebs ? (
                    <div className="flex flex-col items-center justify-center h-64 text-red-500"><Loader2 className="animate-spin mb-2" size={32} /><p className="text-brand-muted text-sm">Loading Roster...</p></div>
@@ -518,17 +572,15 @@ const AdminDashboardPage = () => {
           </div>
         )}
 
-        {/* --- SECTION: USERS (UPDATED WITH BADGES) --- */}
+        {/* --- SECTION: USERS --- */}
         {activeSection === 'users' && (
            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-              
-              {/* LEFT: USERS LIST */}
+              {/* Users List & Details (Same as before) */}
               <div className="lg:col-span-4 space-y-4">
                  <div className="relative">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
                     <input type="text" placeholder="Search users..." className="w-full bg-[#1a1a1a] border border-white/10 rounded-xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:border-red-500/50 transition-colors" />
                  </div>
-                 
                  <div className="space-y-3 mt-4 overflow-y-auto max-h-[600px] pr-2 custom-scrollbar">
                     {loadingUsers ? (
                        <div className="flex justify-center py-8"><Loader2 className="animate-spin text-red-500" /></div>
@@ -547,16 +599,12 @@ const AdminDashboardPage = () => {
                        ))
                     )}
                  </div>
-
-                 {/* Users Pagination */}
                  <div className="flex justify-between items-center pt-2 border-t border-white/10">
                     <button onClick={() => setUserPage(prev => Math.max(prev - 1, 1))} disabled={userPage === 1} className="flex items-center gap-1 px-3 py-1.5 border border-white/10 rounded-lg text-xs text-white hover:bg-white/5 disabled:opacity-50"><ChevronLeft size={12} /> Prev</button>
                     <span className="text-xs text-brand-muted">Page {userPage}</span>
                     <button onClick={() => setUserPage(prev => prev + 1)} disabled={!hasMoreUsers} className="flex items-center gap-1 px-3 py-1.5 border border-white/10 rounded-lg text-xs text-white hover:bg-white/5 disabled:opacity-50">Next <ChevronRight size={12} /></button>
                  </div>
               </div>
-
-              {/* RIGHT: USER DETAILS */}
               <div className="lg:col-span-8">
                  <div className="bg-[#1a1a1a] border border-white/10 rounded-3xl p-8 h-full min-h-[500px] relative">
                     {loadingUserDetails ? (
@@ -566,40 +614,20 @@ const AdminDashboardPage = () => {
                           <div className="absolute top-8 right-8">
                              <button onClick={handleDeleteUser} disabled={deleting} className="flex items-center gap-2 px-4 py-2 border border-red-500/30 text-red-500 rounded-lg text-sm hover:bg-red-500/10 transition-colors">{deleting ? <Loader2 size={16} className="animate-spin"/> : <Trash2 size={16} />} Delete User</button>
                           </div>
-                          
                           <div className="flex items-start gap-6 mb-8 border-b border-white/5 pb-8">
                              <div className="w-24 h-24 rounded-full border-2 border-red-500/20 overflow-hidden bg-gray-900"><img src={getUserImageUrl(activeUserDetails.profile_url)} alt={activeUserDetails.name} className="w-full h-full object-cover" /></div>
                              <div className="flex-1 pt-2">
                                 <h2 className="text-3xl font-serif text-white mb-2">{activeUserDetails.name || 'Unknown User'}</h2>
                                 <div className="flex gap-2 flex-wrap">
-                                   
-                                   {/* --- USER LEVEL BADGE WITH EDIT --- */}
                                    <div className={`px-2 py-1 rounded border text-xs font-bold uppercase flex items-center gap-1 cursor-pointer hover:opacity-80 transition-opacity ${getUserLevelInfo(activeUserDetails.level).bg} ${getUserLevelInfo(activeUserDetails.level).color}`}>
                                       {React.createElement(getUserLevelInfo(activeUserDetails.level).icon, { size: 12 })}
                                       <span>{getUserLevelInfo(activeUserDetails.level).label}</span>
-                                      <button 
-                                        onClick={() => { setSelectedUserLevel(activeUserDetails.level); setShowUserLevelModal(true); }}
-                                        className="ml-1 p-0.5 rounded-full hover:bg-white/20 text-current transition-colors"
-                                      >
-                                         <Edit3 size={10} />
-                                      </button>
+                                      <button onClick={() => { setSelectedUserLevel(activeUserDetails.level); setShowUserLevelModal(true); }} className="ml-1 p-0.5 rounded-full hover:bg-white/20 text-current transition-colors"><Edit3 size={10} /></button>
                                    </div>
-
-                                   {/* --- VERIFICATION STATUS BADGE (NEW) --- */}
-                                   {activeUserDetails.is_verified ? (
-                                      <span className="px-2 py-1 rounded bg-green-500/10 border border-green-500/20 text-green-500 text-xs font-bold uppercase flex items-center gap-1">
-                                         <CheckCircle2 size={12} /> Verified
-                                      </span>
-                                   ) : (
-                                      <span className="px-2 py-1 rounded bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 text-xs font-bold uppercase flex items-center gap-1">
-                                         <XCircle size={12} /> Not Verified
-                                      </span>
-                                   )}
-
+                                   {activeUserDetails.is_verified ? (<span className="px-2 py-1 rounded bg-green-500/10 border border-green-500/20 text-green-500 text-xs font-bold uppercase flex items-center gap-1"><CheckCircle2 size={12} /> Verified</span>) : (<span className="px-2 py-1 rounded bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 text-xs font-bold uppercase flex items-center gap-1"><XCircle size={12} /> Not Verified</span>)}
                                 </div>
                              </div>
                           </div>
-
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                              <DetailItem icon={<Mail size={18} />} label="Email Address" value={activeUserDetails.email} />
                              <DetailItem icon={<Phone size={18} />} label="Phone Number" value={activeUserDetails.phone_number || 'N/A'} />
@@ -613,9 +641,88 @@ const AdminDashboardPage = () => {
            </div>
         )}
 
+        {/* --- SECTION: BOOKINGS (UPDATED) --- */}
+        {activeSection === 'bookings' && (
+           <div className="flex flex-col items-center justify-center min-h-[400px]">
+              <div className="w-full max-w-lg bg-[#1a1a1a] border border-white/10 rounded-2xl p-8">
+                 <h2 className="text-2xl font-serif text-white mb-4 text-center">Search Booking</h2>
+                 <p className="text-brand-muted text-sm text-center mb-6">Enter a valid Booking ID to view details. Admin cannot browse all bookings due to privacy restrictions.</p>
+                 
+                 <form onSubmit={handleSearchBooking} className="flex gap-2 mb-8">
+                    <input 
+                      type="text" 
+                      placeholder="Enter Booking ID (e.g. 550e8400...)" 
+                      value={bookingQuery}
+                      onChange={(e) => setBookingQuery(e.target.value)}
+                      className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-red-500/50 outline-none"
+                    />
+                    <button 
+                      type="submit" 
+                      disabled={searchingBooking || !bookingQuery.trim()}
+                      className="bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-bold px-6 rounded-xl transition-colors flex items-center justify-center"
+                    >
+                       {searchingBooking ? <Loader2 className="animate-spin" /> : <Search size={20} />}
+                    </button>
+                 </form>
+
+                 {searchedBooking && (
+                    <div className="bg-[#121212] border border-white/5 rounded-xl p-6 animate-in fade-in zoom-in-95">
+                       <div className="flex justify-between items-start mb-4 border-b border-white/5 pb-4">
+                          <div>
+                             <h3 className="text-white font-bold text-lg">Booking Details</h3>
+                             <p className="text-xs text-brand-muted font-mono">{searchedBooking.id}</p>
+                          </div>
+                          <span className={`px-2 py-1 rounded text-xs font-bold uppercase border ${
+                             searchedBooking.status === 'Paid' ? 'text-green-500 border-green-500/30' : 
+                             searchedBooking.status === 'Pending' ? 'text-yellow-500 border-yellow-500/30' :
+                             'text-red-500 border-red-500/30'
+                          }`}>
+                             {searchedBooking.status}
+                          </span>
+                       </div>
+                       
+                       <div className="space-y-3">
+                          <div className="flex justify-between text-sm">
+                             <span className="text-gray-400">Celebrity</span>
+                             <span className="text-white font-medium">{searchedBooking.celeb_name}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                             <span className="text-gray-400">User</span>
+                             <span className="text-white font-medium">{searchedBooking.user_name}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                             <span className="text-gray-400">Service</span>
+                             <span className="text-white font-medium">{searchedBooking.service_type}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                             <span className="text-gray-400">Date</span>
+                             <span className="text-white font-medium">{new Date(searchedBooking.created_at).toLocaleDateString()}</span>
+                          </div>
+                       </div>
+
+                       {/* MARK AS PAID BUTTON */}
+                       {searchedBooking.status === 'Pending' && (
+                          <div className="mt-6 pt-4 border-t border-white/10">
+                             <button 
+                               onClick={handleUpdateBookingStatus}
+                               disabled={updatingBooking}
+                               className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
+                             >
+                                {updatingBooking ? <Loader2 className="animate-spin" size={16} /> : <CreditCard size={16} />}
+                                Mark as Paid
+                             </button>
+                          </div>
+                       )}
+                    </div>
+                 )}
+              </div>
+           </div>
+        )}
+
       </main>
 
-      {/* --- ALL MODALS (Unchanged) ... */}
+      {/* --- ALL MODALS --- */}
+      {/* ... (Previous modals remain identical: Add Agent, Edit Info, Tier, Image, User Level) ... */}
       {showAddModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
            <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl w-full max-w-md p-6 relative shadow-2xl">
@@ -684,19 +791,11 @@ const AdminDashboardPage = () => {
               <form onSubmit={handleUpdateUserLevel} className="space-y-4">
                  <div className="space-y-1">
                     <label className="text-xs font-semibold text-gray-400">Select Level</label>
-                    <select 
-                      value={selectedUserLevel} 
-                      onChange={e => setSelectedUserLevel(e.target.value)} 
-                      className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-red-500/50 outline-none"
-                    >
-                       {USER_LEVELS.map(l => (
-                         <option key={l.value} value={l.value}>{l.label}</option>
-                       ))}
+                    <select value={selectedUserLevel} onChange={e => setSelectedUserLevel(e.target.value)} className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-red-500/50 outline-none">
+                       {USER_LEVELS.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
                     </select>
                  </div>
-                 <button type="submit" disabled={updatingUserLevel} className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
-                    {updatingUserLevel ? <Loader2 className="animate-spin" /> : 'Update Level'}
-                 </button>
+                 <button type="submit" disabled={updatingUserLevel} className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">{updatingUserLevel ? <Loader2 className="animate-spin" /> : 'Update Level'}</button>
               </form>
            </div>
         </div>
