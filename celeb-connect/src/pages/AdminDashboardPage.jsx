@@ -4,7 +4,7 @@ import {
   Briefcase, Mail, Phone, Calendar, ShieldCheck, ChevronRight,
   Plus, X, Edit3, Trash2, Camera, LogOut, Upload, Image as ImageIcon,
   Award, MapPin, ChevronLeft, User, Crown, AlertTriangle, CheckCircle2, XCircle,
-  Ticket, CreditCard // Added CreditCard icon
+  Ticket, CreditCard
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
@@ -44,7 +44,7 @@ const AdminDashboardPage = () => {
   const [bookingQuery, setBookingQuery] = useState('');
   const [searchedBooking, setSearchedBooking] = useState(null);
   const [searchingBooking, setSearchingBooking] = useState(false);
-  const [updatingBooking, setUpdatingBooking] = useState(false); // New state for update loading
+  const [updatingBooking, setUpdatingBooking] = useState(false);
 
   // --- ACTIONS STATE ---
   const [showAddModal, setShowAddModal] = useState(false);
@@ -210,7 +210,16 @@ const AdminDashboardPage = () => {
       const response = await api.get(`/admin/bookings/${bookingQuery.trim()}`);
       
       if (response.data.status === true) {
-        setSearchedBooking(response.data.data);
+        // Parse the new response structure
+        const { booking, user: userName, celebrity: celebName } = response.data.data;
+        
+        // Flatten for easy use in UI
+        setSearchedBooking({
+            ...booking,
+            user_name: userName,
+            celeb_name: celebName,
+            service_type: booking.type // Fallback mapping if UI uses service_type
+        });
       } else {
         alert(response.data.message || "Booking not found");
       }
@@ -222,12 +231,10 @@ const AdminDashboardPage = () => {
     }
   };
 
-  // --- NEW: UPDATE BOOKING STATUS HANDLER ---
   const handleUpdateBookingStatus = async () => {
     if (!searchedBooking) return;
     setUpdatingBooking(true);
     try {
-        // PATCH /admin/bookings/{booking_id}
         const response = await api.patch(`/admin/bookings/${searchedBooking.id}`, { status: 'Paid' });
         
         if (response.data.status === true) {
@@ -471,7 +478,7 @@ const AdminDashboardPage = () => {
         {/* --- SECTION: AGENTS --- */}
         {activeSection === 'agents' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-             {/* ... (Agent list and details remain same) ... */}
+             {/* Agents List & Details (Same as before) */}
              <div className="lg:col-span-4 space-y-4">
                 <div className="relative">
                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
@@ -535,7 +542,6 @@ const AdminDashboardPage = () => {
         {/* --- SECTION: CELEBRITIES --- */}
         {activeSection === 'celebrities' && (
           <div className="space-y-6">
-             {/* ... (Celeb List logic remains same) ... */}
              <div className="min-h-[400px]">
                 {loadingCelebs ? (
                    <div className="flex flex-col items-center justify-center h-64 text-red-500"><Loader2 className="animate-spin mb-2" size={32} /><p className="text-brand-muted text-sm">Loading Roster...</p></div>
@@ -575,7 +581,6 @@ const AdminDashboardPage = () => {
         {/* --- SECTION: USERS --- */}
         {activeSection === 'users' && (
            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-              {/* Users List & Details (Same as before) */}
               <div className="lg:col-span-4 space-y-4">
                  <div className="relative">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={18} />

@@ -32,7 +32,7 @@ const AgentLoginPage = () => {
     if (result.success) {
       // Check validation status from the response data
       if (result.data.email_verified === false) {
-         navigate('/agent/update-password');
+         navigate('/agent/update/password');
       } else {
          navigate('/agent/dashboard');
       }

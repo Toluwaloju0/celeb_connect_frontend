@@ -16,7 +16,7 @@ const AgentEditCelebrityPage = () => {
     profession: '',
     location: '',
     marital_status: '',
-    bio: '' // Added Bio field
+    bio: '' 
   });
   const [currentImage, setCurrentImage] = useState(null);
   
@@ -44,7 +44,7 @@ const AgentEditCelebrityPage = () => {
             profession: data.profession || '',
             location: data.location || '',
             marital_status: data.marital_status || '',
-            bio: data.bio || '' // Map bio from backend
+            bio: data.bio || '' 
           });
           setCurrentImage(data.profile_url);
         } else {
@@ -61,13 +61,14 @@ const AgentEditCelebrityPage = () => {
     fetchDetails();
   }, [id, navigate]);
 
-  // 2. Handle Text Update
+  // 2. Handle Text Update (UPDATED ENDPOINT)
   const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
     try {
-      // formData now includes 'bio'
-      const response = await api.patch(`/agent/celeb/${id}`, formData);
+      // UPDATED: /agent/celeb/{id}/profile
+      const response = await api.patch(`/agent/celeb/${id}/profile`, formData);
+      
       if (response.data.status === true) {
         alert('Profile updated successfully');
         navigate('/agent/dashboard');
@@ -76,7 +77,7 @@ const AgentEditCelebrityPage = () => {
       }
     } catch (error) {
       console.error(error);
-      alert('Error updating profile');
+      alert(error.response?.data?.message || 'Error updating profile');
     } finally {
       setSaving(false);
     }
@@ -123,7 +124,7 @@ const AgentEditCelebrityPage = () => {
     if (!filename) return "https://images.unsplash.com/photo-1511367461989-f85a21fda167?q=80&w=1000&auto=format&fit=crop"; 
     if (filename.startsWith('http') || filename.startsWith('https')) return filename;
     
-    const cleanDir = PICTURE_BASE.replace(/^\/+|\/+$/g, '');
+    const cleanDir = PICTURE_BASE ? PICTURE_BASE.replace(/^\/+|\/+$/g, '') : 'uploads';
     return `/${cleanDir}/agent/${filename}`;
   };
 
@@ -220,7 +221,7 @@ const AgentEditCelebrityPage = () => {
                        </select>
                    </div>
 
-                   {/* --- NEW BIO FIELD --- */}
+                   {/* BIO FIELD */}
                    <div className="space-y-1">
                       <label className="text-xs font-semibold text-gray-400 flex items-center gap-1"><AlignLeft size={12}/> Biography</label>
                       <textarea

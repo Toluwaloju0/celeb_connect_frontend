@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Search, Users, Star, UserCheck, Loader2, 
   Briefcase, ArrowLeft, MapPin, Calendar, ChevronRight, ChevronLeft,
-  CheckCircle2, XCircle, Clock, Check
+  CheckCircle2, XCircle, Clock, Check, CreditCard // Added CreditCard icon
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -37,7 +37,11 @@ const BookExperiencePage = () => {
 
   const PICTURE_BASE = import.meta.env.VITE_PICTURE_BASE;
 
-  // Constants
+  // --- PRICING FROM ENV ---
+  const PRICE_ONE_TIME = Number(import.meta.env.VITE_PRICE_ONE_TIME || 5000);
+  const PRICE_LONG_MEET = Number(import.meta.env.VITE_PRICE_LONG_MEET || 12000);
+  const PRICE_VACATION = Number(import.meta.env.VITE_PRICE_VACATION || 25000);
+
   const DAYS_MAP = [
     { key: 'monday', label: 'Monday', enum: 'MONDAY' },
     { key: 'tuesday', label: 'Tuesday', enum: 'TUESDAY' },
@@ -49,10 +53,31 @@ const BookExperiencePage = () => {
   ];
 
   const BOOKING_TYPES = [
-    { value: 'One-Time', label: 'One-Time Event', desc: 'Single event appearance or short meet.' },
-    { value: 'Vacation', label: 'Vacation', desc: 'Companion for trips or getaways.' },
-    { value: 'Long-Meet', label: 'Long-Meet', desc: 'Extended interaction session (>4 hours).' },
+    { 
+      value: 'One-Time', 
+      label: 'One-Time Event', 
+      desc: 'Single event appearance or short meet.',
+      price: PRICE_ONE_TIME
+    },
+    { 
+      value: 'Long-Meet', 
+      label: 'Long-Meet', 
+      desc: 'Extended interaction session (>4 hours).',
+      price: PRICE_LONG_MEET
+    },
+    { 
+      value: 'Vacation', 
+      label: 'Vacation', 
+      desc: 'Companion for trips or getaways.',
+      price: PRICE_VACATION
+    },
   ];
+
+  // Helper to get current price based on selection
+  const getCurrentPrice = () => {
+    const type = BOOKING_TYPES.find(t => t.value === bookingType);
+    return type ? type.price : 0;
+  };
 
   // --- 1. FETCH AGENTS ---
   useEffect(() => {
@@ -122,7 +147,7 @@ const BookExperiencePage = () => {
     setShowBookingModal(true);
   };
 
-  // --- 5. SUBMIT BOOKING (UPDATED LOGIC) ---
+  // --- 5. SUBMIT BOOKING ---
   const handleConfirmBooking = async () => {
     if (!selectedCeleb || !selectedDay) return;
     
@@ -134,7 +159,19 @@ const BookExperiencePage = () => {
       });
 
       if (response.data.status === true) {
-        // UPDATED: Alert success and redirect to My Bookings
+        // Handle redirect based on response structure
+        const data = response.data.data;
+        let bookingId = null;
+
+        if (data && typeof data === 'object') {
+            bookingId = data.id || data.booking_id;
+        } else if (typeof data === 'string' || typeof data === 'number') {
+            bookingId = data;
+        }
+
+        // If ID exists, go to payment directly (optional UX choice), 
+        // but prompt asked to redirect to my bookings.
+        // We will stick to the previous successful flow: redirect to My Bookings
         alert("Booking request submitted successfully!");
         navigate('/my/bookings'); 
       } else {
@@ -157,7 +194,6 @@ const BookExperiencePage = () => {
   };
 
   // --- RENDERERS ---
-  
   const renderAgentList = () => (
     <>
       <div className="mb-8">
@@ -283,14 +319,34 @@ const BookExperiencePage = () => {
               <h2 className="text-xl font-serif text-white mb-2">Confirm Booking Details</h2>
               <p className="text-brand-muted text-sm mb-6">You are requesting to book <span className="text-white font-bold">{selectedCeleb.name}</span> for <span className="text-brand-gold">{selectedDay?.label}</span>.</p>
               
-              <div className="space-y-3 mb-8">
+              <div className="space-y-3 mb-6">
                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Select Experience Type</p>
                  {BOOKING_TYPES.map((type) => (
-                    <div key={type.value} onClick={() => setBookingType(type.value)} className={`p-4 rounded-xl border cursor-pointer flex items-center justify-between transition-all ${bookingType === type.value ? 'bg-brand-gold/10 border-brand-gold text-white' : 'bg-[#121212] border-white/10 text-gray-400 hover:border-white/30'}`}>
-                       <div><span className={`block font-bold text-sm ${bookingType === type.value ? 'text-brand-gold' : 'text-white'}`}>{type.label}</span><span className="text-xs opacity-70">{type.desc}</span></div>
-                       {bookingType === type.value && <CheckCircle2 size={18} className="text-brand-gold" />}
+                    <div 
+                      key={type.value}
+                      onClick={() => setBookingType(type.value)}
+                      className={`p-4 rounded-xl border cursor-pointer flex items-center justify-between transition-all ${
+                        bookingType === type.value 
+                          ? 'bg-brand-gold/10 border-brand-gold text-white' 
+                          : 'bg-[#121212] border-white/10 text-gray-400 hover:border-white/30'
+                      }`}
+                    >
+                       <div>
+                          <span className={`block font-bold text-sm ${bookingType === type.value ? 'text-brand-gold' : 'text-white'}`}>{type.label}</span>
+                          <span className="text-xs opacity-70">{type.desc}</span>
+                       </div>
+                       <div className="text-right">
+                          <span className={`block font-bold text-sm ${bookingType === type.value ? 'text-brand-gold' : 'text-white'}`}>${type.price.toLocaleString()}</span>
+                          {bookingType === type.value && <CheckCircle2 size={16} className="text-brand-gold ml-auto mt-1" />}
+                       </div>
                     </div>
                  ))}
+              </div>
+
+              {/* Total Price Display */}
+              <div className="bg-[#121212] border border-white/5 rounded-xl p-4 mb-6 flex justify-between items-center">
+                 <span className="text-sm text-brand-muted">Estimated Total</span>
+                 <span className="text-xl font-bold text-brand-gold font-mono">${getCurrentPrice().toLocaleString()}</span>
               </div>
 
               <div className="flex gap-3">
@@ -300,7 +356,6 @@ const BookExperiencePage = () => {
                    disabled={bookingLoading}
                    className="flex-1 py-3 bg-brand-gold hover:bg-yellow-500 text-black rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2"
                  >
-                    {/* UPDATED BUTTON TEXT */}
                     {bookingLoading ? <Loader2 className="animate-spin" /> : 'Book Experience'}
                  </button>
               </div>

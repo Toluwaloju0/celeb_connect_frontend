@@ -29,7 +29,7 @@ const AgentSchedulePage = () => {
   const DAYS_MAP = [
     { key: 'monday', label: 'Monday', enum: 'MONDAY' },
     { key: 'tuesday', label: 'Tuesday', enum: 'TUESDAY' },
-    { key: 'wednessday', label: 'Wednesday', enum: 'WEDNESDAY' }, 
+    { key: 'wednesday', label: 'Wednesday', enum: 'WEDNESDAY' }, 
     { key: 'thursday', label: 'Thursday', enum: 'THURSDAY' },
     { key: 'friday', label: 'Friday', enum: 'FRIDAY' },
     { key: 'saturday', label: 'Saturday', enum: 'SATURDAY' },
